@@ -47,18 +47,6 @@ class Category(str, Enum):
     SNACK = "snack"
     BEVERAGE = "beverage"
     OTHER = "other"
-    PROTEIN = "protein"
-    GRAIN = "grain"
-    VEGETABLE = "vegetable"
-    FRUIT = "fruit"
-    DAIRY = "dairy"
-    CONDIMENT = "condiment"
-    SPICE = "spice"
-    CANNED = "canned"
-    FROZEN = "frozen"
-    SNACK = "snack"
-    BEVERAGE = "beverage"
-    OTHER = "other"
 
 # ===== PANTRY ITEM SCHEMAS =====
 
