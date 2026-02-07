@@ -8,7 +8,7 @@ This service can integrate with APIs like:
 
 import httpx
 from typing import Optional, Dict
-from pantry_schemas import PantryItemCreate, Category, UnitType
+from ..schemas.pantry import PantryItemCreate, Category, UnitType
 
 
 class BarcodeService:

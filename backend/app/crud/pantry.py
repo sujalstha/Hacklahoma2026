@@ -4,8 +4,8 @@ from typing import Optional, List
 from datetime import datetime
 from fastapi import HTTPException
 
-from pantry_models import PantryItem, Inventory, UserPreferences, DinnerHistory, UnitType, Category, DietaryRestriction
-from pantry_schemas import (
+from ..models.pantry import PantryItem, Inventory, UserPreferences, DinnerHistory, UnitType, Category, DietaryRestriction
+from ..schemas.pantry import (
     PantryItemCreate, PantryItemUpdate,
     InventoryCreate, InventoryUpdate,
     UserPreferencesCreate, UserPreferencesUpdate,

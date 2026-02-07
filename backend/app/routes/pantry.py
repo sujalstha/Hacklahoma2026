@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 from typing import List, Optional
 
-from pantry_schemas import (
+from ..schemas.pantry import (
     PantryItemCreate, PantryItemUpdate, PantryItemResponse,
     InventoryCreate, InventoryUpdate, InventoryResponse,
     UserPreferencesCreate, UserPreferencesUpdate, UserPreferencesResponse,
@@ -11,8 +11,10 @@ from pantry_schemas import (
     InventoryBatchAdd, InventoryBatchResponse,
     MacroSummary, Category
 )
-from pantry_models import UnitType
-import pantry_crud as crud
+from ..models.pantry import UnitType
+from ..import crud
+from ..deps import get_db, get_current_user
+from ..crud import pantry as crud
 # from deps import get_db, get_current_user  # You'll need to implement these
 
 router = APIRouter(prefix="/api/pantry", tags=["pantry"])
