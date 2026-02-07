@@ -435,4 +435,4 @@ This is a complete backend structure. To extend:
 
 ## 📄 License
 
-[Your License Here]
+[MIT]
