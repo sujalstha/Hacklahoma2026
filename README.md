@@ -434,5 +434,6 @@ This is a complete backend structure. To extend:
 4. Update view controllers with new UI
 
 ## 📄 License
-
-[MIT]
+Private repository — All rights reserved.  
+No permission is granted to use, copy, modify, or distribute this code without explicit written permission.
+****
