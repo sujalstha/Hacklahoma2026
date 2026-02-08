@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Home, Package, BarChart3, User } from 'lucide-react';
+import { Home, BookOpen, Package, PieChart } from 'lucide-react';
 import './BottomNav.css';
 
 const BottomNav = () => {
@@ -9,9 +9,9 @@ const BottomNav = () => {
 
   const navItems = [
     { path: '/home', icon: Home, label: 'Home' },
+    { path: '/recipes', icon: BookOpen, label: 'Recipes' },
     { path: '/inventory', icon: Package, label: 'Inventory' },
-    { path: '/macros', icon: BarChart3, label: 'Nutrition' },
-    { path: '/profile', icon: User, label: 'Profile' }
+    { path: '/macros', icon: PieChart, label: 'Macros' }
   ];
 
   return (
