@@ -13,7 +13,7 @@ enum AppConfig {
         #if targetEnvironment(simulator)
         return "http://127.0.0.1:8000"
         #else
-        return "http://127.0.0.1:8000" // Replace with your Mac's IP when testing on device
+        return "http://10.206.20.121:8000" // Updated to your Mac's IP
         #endif
     }
 

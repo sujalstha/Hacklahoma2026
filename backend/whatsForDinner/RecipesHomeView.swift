@@ -64,33 +64,52 @@ struct RecipesHomeView: View {
     }
 
     private var header: some View {
-        HStack(spacing: 12) {
-            Button {
-                showScanSheet = true
-            } label: {
-                HStack(spacing: 8) {
-                    Image(systemName: "barcode.viewfinder")
-                    Text("Scan")
+        VStack(spacing: 16) {
+            HStack(spacing: 12) {
+                Button {
+                    showScanSheet = true
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "barcode.viewfinder")
+                        Text("Scan")
+                    }
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .padding(.vertical, 12)
+                    .padding(.horizontal, 16)
+                    .background(Color.secondaryGradient)
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                    .shadow(color: .appSecondary.opacity(0.3), radius: 8, x: 0, y: 4)
                 }
-                .font(.subheadline.weight(.semibold))
-                .padding(.vertical, 10)
-                .padding(.horizontal, 12)
-                .background(.thinMaterial)
-                .clipShape(RoundedRectangle(cornerRadius: 12))
+                
+                Spacer()
+                
+                Button {
+                    Task { await loadSuggestions() }
+                } label: {
+                    Image(systemName: isLoading ? "arrow.clockwise" : "arrow.clockwise")
+                        .font(.title3.weight(.semibold))
+                        .foregroundStyle(Color.appPrimary)
+                        .padding(12)
+                        .background(.ultraThinMaterial)
+                        .clipShape(Circle())
+                        .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
+                }
+                .disabled(isLoading)
+                .rotationEffect(.degrees(isLoading ? 360 : 0))
+                .animation(isLoading ? .linear(duration: 1).repeatForever(autoreverses: false) : .default, value: isLoading)
             }
+            
             Text("What's for Dinner")
-                .font(.largeTitle).bold()
+                .font(.system(size: 34, weight: .bold, design: .rounded))
+                .foregroundStyle(
+                    LinearGradient(
+                        colors: [.appPrimary, .appSecondary],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                )
                 .frame(maxWidth: .infinity, alignment: .leading)
-            Button {
-                Task { await loadSuggestions() }
-            } label: {
-                Image(systemName: "arrow.clockwise")
-                    .font(.title3.weight(.semibold))
-                    .padding(10)
-                    .background(.thinMaterial)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-            }
-            .disabled(isLoading)
         }
     }
 
@@ -107,18 +126,32 @@ struct RecipesHomeView: View {
                     Image(systemName: "chevron.down")
                 }
                 .font(.subheadline.weight(.semibold))
-                .padding(.vertical, 10)
-                .padding(.horizontal, 12)
-                .background(.thinMaterial)
-                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .foregroundStyle(selectedAllergy == .all ? .primary : Color.appPrimary)
+                .padding(.vertical, 12)
+                .padding(.horizontal, 16)
+                .background(selectedAllergy == .all ? Color(.systemBackground) : Color.appPrimaryLight)
+                .clipShape(RoundedRectangle(cornerRadius: 14))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14)
+                        .stroke(selectedAllergy == .all ? Color.gray.opacity(0.2) : Color.appPrimary.opacity(0.3), lineWidth: 1)
+                )
             }
-            TextField("Search", text: $searchText)
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
-                .padding(.vertical, 10)
-                .padding(.horizontal, 12)
-                .background(.thinMaterial)
-                .clipShape(RoundedRectangle(cornerRadius: 12))
+            
+            HStack(spacing: 8) {
+                Image(systemName: "magnifyingglass")
+                    .foregroundStyle(.secondary)
+                TextField("Search recipes", text: $searchText)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+            }
+            .padding(.vertical, 12)
+            .padding(.horizontal, 16)
+            .background(Color(.systemBackground))
+            .clipShape(RoundedRectangle(cornerRadius: 14))
+            .overlay(
+                RoundedRectangle(cornerRadius: 14)
+                    .stroke(Color.gray.opacity(0.2), lineWidth: 1)
+            )
         }
     }
 

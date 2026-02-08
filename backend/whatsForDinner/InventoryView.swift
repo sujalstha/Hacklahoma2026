@@ -90,29 +90,42 @@ struct InventoryItemRow: View {
     let item: InventoryItem
     
     var body: some View {
-        HStack(spacing: 12) {
-            // Image
-            if let imageURL = item.imageURL, let url = URL(string: imageURL) {
-                AsyncImage(url: url) { image in
-                    image
-                        .resizable()
-                        .scaledToFill()
-                } placeholder: {
-                    Color.gray.opacity(0.2)
+        HStack(spacing: 14) {
+            // Image with gradient border
+            ZStack {
+                if let imageURL = item.imageURL, let url = URL(string: imageURL) {
+                    AsyncImage(url: url) { image in
+                        image
+                            .resizable()
+                            .scaledToFill()
+                    } placeholder: {
+                        Color.gray.opacity(0.1)
+                    }
+                    .frame(width: 70, height: 70)
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                } else {
+                    RoundedRectangle(cornerRadius: 14)
+                        .fill(
+                            LinearGradient(
+                                colors: [Color.appPrimaryLight, Color.appSecondaryLight],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(width: 70, height: 70)
+                        .overlay(
+                            Image(systemName: "leaf.fill")
+                                .foregroundStyle(.white.opacity(0.7))
+                                .font(.title2)
+                        )
                 }
-                .frame(width: 60, height: 60)
-                .clipShape(RoundedRectangle(cornerRadius: 8))
-            } else {
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(.gray.opacity(0.2))
-                    .frame(width: 60, height: 60)
-                    .overlay(
-                        Image(systemName: "photo")
-                            .foregroundStyle(.secondary)
-                    )
             }
+            .overlay(
+                RoundedRectangle(cornerRadius: 14)
+                    .stroke(Color.appPrimary.opacity(0.2), lineWidth: 2)
+            )
             
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 6) {
                 Text(item.productName)
                     .font(.headline)
                     .lineLimit(1)
@@ -128,18 +141,34 @@ struct InventoryItemRow: View {
                         .foregroundStyle(.secondary)
                 }
                 
-                // Macros preview
-                HStack(spacing: 8) {
+                // Enhanced Macros preview
+                HStack(spacing: 6) {
                     if let calories = item.calories {
-                        Label("\(Int(calories)) kcal", systemImage: "flame.fill")
-                            .font(.caption2)
-                            .foregroundStyle(.orange)
+                        HStack(spacing: 3) {
+                            Image(systemName: "flame.fill")
+                                .font(.caption2)
+                            Text("\(Int(calories))")
+                                .font(.caption.weight(.semibold))
+                        }
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Color.caloriesRed.gradient)
+                        .clipShape(Capsule())
                     }
                     
                     if let protein = item.protein {
-                        Label("\(String(format: "%.1f", protein))g", systemImage: "p.circle.fill")
-                            .font(.caption2)
-                            .foregroundStyle(.blue)
+                        HStack(spacing: 3) {
+                            Image(systemName: "p.circle.fill")
+                                .font(.caption2)
+                            Text("\(String(format: "%.1f", protein))g")
+                                .font(.caption.weight(.semibold))
+                        }
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Color.proteinBlue.gradient)
+                        .clipShape(Capsule())
                     }
                 }
             }
@@ -147,9 +176,9 @@ struct InventoryItemRow: View {
             Spacer()
             
             Image(systemName: "chevron.right")
-                .font(.caption)
-                .foregroundStyle(.tertiary)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(Color.appPrimary)
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, 8)
     }
 }

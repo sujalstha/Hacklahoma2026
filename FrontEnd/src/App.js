@@ -7,7 +7,9 @@ import RecipeDetailPage from './pages/RecipeDetailPage';
 import InventoryPage from './pages/InventoryPage';
 import MacrosPage from './pages/MacrosPage';
 import BottomNav from './components/Shared/BottomNav';
-import './App.css';
+
+import './index.css'; // Ensure tailwind is loaded
+
 
 function AppContent() {
   const location = useLocation();
@@ -15,8 +17,8 @@ function AppContent() {
   const shouldShowNav = !hideNavRoutes.includes(location.pathname);
 
   return (
-    <div className="App">
-      <div className="main-content">
+    <div className="min-h-screen bg-gray-50 pb-24 md:pb-0 md:pl-20 relative">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <Routes>
           <Route path="/" element={<LoginPage />} />
           <Route path="/login" element={<LoginPage />} />

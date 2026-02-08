@@ -9,36 +9,35 @@ import SwiftUI
 
 struct MacrosView: View {
     @State private var dinners: [DinnerEntry] = []
+    @State private var goals: MacroGoals?
     @State private var isLoading = false
     @State private var errorMessage: String?
     private let pantryService = PantryService()
 
     var body: some View {
         NavigationStack {
-            VStack(alignment: .leading, spacing: 16) {
-                Text("Today's macros")
-                    .font(.largeTitle).bold()
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                if isLoading && dinners.isEmpty {
-                    HStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    Text("Today's macros")
+                        .font(.system(size: 34, weight: .bold, design: .rounded))
+                        .padding(.top)
+                    
+                    if isLoading && dinners.isEmpty {
                         ProgressView()
-                        Text("Loading…")
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                    } else if let msg = errorMessage, dinners.isEmpty {
+                        Text(msg)
                             .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                    } else {
+                        parliamentChartsGrid
+                        todayMealsSection
                     }
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                } else if let msg = errorMessage, dinners.isEmpty {
-                    Text(msg)
-                        .foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                } else {
-                    dailyTotalsCard
-                    todayMealsSection
                 }
-                Spacer()
+                .padding(.horizontal)
             }
-            .padding()
             .navigationTitle("Macros")
             .navigationBarTitleDisplayMode(.inline)
             .task { await loadToday() }
@@ -46,32 +45,39 @@ struct MacrosView: View {
         }
     }
 
-    private var dailyTotalsCard: some View {
+    private var parliamentChartsGrid: some View {
         let (cal, pro, carb, fat) = todayTotals()
-        return VStack(alignment: .leading, spacing: 12) {
-            Text("Totals for today")
-                .font(.headline)
-            HStack(spacing: 24) {
-                macroPill(value: Int(cal), unit: "cal", label: "Calories")
-                macroPill(value: Int(pro), unit: "g", label: "Protein")
-                macroPill(value: Int(carb), unit: "g", label: "Carbs")
-                macroPill(value: Int(fat), unit: "g", label: "Fat")
+        return VStack(spacing: 20) {
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 16) {
+                ParliamentChart(
+                    value: cal,
+                    goal: goals?.calories ?? 2000,
+                    label: "Calories",
+                    unit: "kcal",
+                    color: .caloriesRed
+                )
+                ParliamentChart(
+                    value: pro,
+                    goal: goals?.protein ?? 150,
+                    label: "Protein",
+                    unit: "g",
+                    color: .proteinBlue
+                )
+                ParliamentChart(
+                    value: carb,
+                    goal: goals?.carbs ?? 200,
+                    label: "Carbs",
+                    unit: "g",
+                    color: .carbsYellow
+                )
+                ParliamentChart(
+                    value: fat,
+                    goal: goals?.fat ?? 70,
+                    label: "Fat",
+                    unit: "g",
+                    color: .fatsOrange
+                )
             }
-            .font(.subheadline)
-        }
-        .padding()
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.thinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-    }
-
-    private func macroPill(value: Int, unit: String, label: String) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text("\(value) \(unit)")
-                .fontWeight(.semibold)
-            Text(label)
-                .font(.caption)
-                .foregroundStyle(.secondary)
         }
     }
 
@@ -126,10 +132,72 @@ struct MacrosView: View {
         errorMessage = nil
         defer { isLoading = false }
         do {
-            dinners = try await pantryService.fetchDinners(days: 1)
+            async let dinnersTask = pantryService.fetchDinners(days: 1)
+            async let goalsTask = pantryService.fetchPreferences()
+            
+            let (fetchedDinners, fetchedGoals) = try await (dinnersTask, goalsTask)
+            self.dinners = fetchedDinners
+            self.goals = fetchedGoals
         } catch {
-            errorMessage = error.localizedDescription
-            dinners = []
+            print("Macros load error: \(error)")
+            // If goals fail, we still want to show dinners if possible
+            if dinners.isEmpty {
+                errorMessage = error.localizedDescription
+            }
         }
+    }
+}
+
+// MARK: - Parliament Chart Component
+
+struct ParliamentChart: View {
+    let value: Double
+    let goal: Double
+    let label: String
+    let unit: String
+    let color: Color
+    
+    private var progress: Double {
+        guard goal > 0 else { return 0 }
+        return min(value / goal, 1.0)
+    }
+    
+    var body: some View {
+        VStack(spacing: 8) {
+            ZStack {
+                Circle()
+                    .trim(from: 0.5, to: 1.0)
+                    .stroke(color.opacity(0.1), style: StrokeStyle(lineWidth: 12, lineCap: .round))
+                
+                Circle()
+                    .trim(from: 0.5, to: 0.5 + (progress * 0.5))
+                    .stroke(
+                        LinearGradient(
+                            colors: [color, color.opacity(0.7)],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        ),
+                        style: StrokeStyle(lineWidth: 12, lineCap: .round)
+                    )
+                    .shadow(color: color.opacity(0.3), radius: 4, x: 0, y: 2)
+                
+                VStack(spacing: 0) {
+                    Text("\(Int(value))")
+                        .font(.system(size: 20, weight: .bold, design: .rounded))
+                    Text(unit)
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                }
+                .offset(y: -10)
+            }
+            .frame(height: 80)
+            
+            Text(label)
+                .font(.caption.weight(.bold))
+                .foregroundStyle(.secondary)
+        }
+        .padding(12)
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 16))
     }
 }

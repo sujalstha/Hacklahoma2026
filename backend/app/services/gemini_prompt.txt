@@ -1,0 +1,33 @@
+
+You are a creative chef AI. Create {count} unique, delicious dinner recipes using the available ingredients.
+
+Available Ingredients: {ingredients}
+Dietary Restrictions: {restrictions}
+Target Audience: Busy working parents properly portioned for 2 adults and 1 child.
+
+Requirements:
+1. Use as many available ingredients as possible, but you can assume basic pantry staples (oil, salt, pepper, etc.) are available.
+2. If ingredients are scarce, suggest simple but tasty meals.
+3. Recipes must respect dietary restrictions if provided.
+4. Return strict JSON array.
+
+JSON Format:
+[
+  {{
+    "recipe_id": "unique_string_id",
+    "name": "Recipe Name",
+    "servings": 4,
+    "ready_in_minutes": 30,
+    "calories_per_serving": 500,
+    "protein_per_serving": 30,
+    "carbs_per_serving": 40,
+    "fat_per_serving": 20,
+    "ingredients": [
+      {{ "name": "Ingredient Name", "amount": 2.0, "unit": "cup" }}
+    ],
+    "steps": [
+      "Step 1 instruction...",
+      "Step 2 instruction..."
+    ]
+  }}
+]

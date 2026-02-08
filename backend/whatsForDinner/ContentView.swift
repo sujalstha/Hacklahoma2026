@@ -1,7 +1,7 @@
 import SwiftUI
 import Supabase
 
-struct LoginView: View {
+struct ContentView: View {
     let supabase: SupabaseClient
 
     @State private var email = ""

@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
-import { Search } from 'lucide-react';
+import { Search, Filter } from 'lucide-react';
 import RecipeCard from '../components/Home/RecipeCard';
-import './RecipesPage.css';
 
 const RecipesPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -70,33 +69,54 @@ const RecipesPage = () => {
   );
 
   return (
-    <div className="recipes-page">
+    <div className="space-y-6 pb-24">
       {/* Header */}
-      <div className="recipes-header">
-        <h1>All Recipes</h1>
-        <p>Discover delicious meals you can make</p>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-900">All Recipes</h1>
+          <p className="text-gray-500">Discover delicious meals you can make</p>
+        </div>
+
+        {/* Search Bar */}
+        <div className="relative w-full md:w-96">
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <Search size={20} className="text-gray-400" />
+          </div>
+          <input
+            type="text"
+            className="block w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl leading-5 bg-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent sm:text-sm shadow-sm transition-shadow"
+            placeholder="Search recipes, ingredients..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
       </div>
 
-      {/* Search Bar */}
-      <div className="recipes-search">
-        <Search size={20} color="#6c757d" />
-        <input
-          type="text"
-          placeholder="Search recipes..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-        />
+      {/* Filters (Mock) */}
+      <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
+        {['All', 'Breakfast', 'Lunch', 'Dinner', 'Snacks', 'Desserts'].map((cat) => (
+          <button
+            key={cat}
+            className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap border ${cat === 'All' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
+          >
+            {cat}
+          </button>
+        ))}
       </div>
 
       {/* Recipe Grid */}
-      <div className="recipes-grid">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredRecipes.length > 0 ? (
           filteredRecipes.map((recipe) => (
             <RecipeCard key={recipe.id} recipe={recipe} />
           ))
         ) : (
-          <div className="no-recipes">
-            <p>No recipes found. Try a different search term.</p>
+          <div className="col-span-full py-12 text-center">
+            <div className="inline-block p-4 bg-gray-50 rounded-full mb-3">
+              <Search size={32} className="text-gray-400" />
+            </div>
+            <h3 className="text-lg font-medium text-gray-900">No recipes found</h3>
+            <p className="text-gray-500">Try adjusting your search terms</p>
           </div>
         )}
       </div>

@@ -89,4 +89,101 @@ final class PantryService {
         let decoder = JSONDecoder()
         return try decoder.decode(MacroSummary.self, from: data)
     }
+
+    /// Fetch current user's inventory.
+    func fetchInventory() async throws -> [InventoryItem] {
+        guard let url = URL(string: "\(baseURL)/api/pantry/inventory") else {
+            throw RecipeServiceError.invalidURL
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        let (data, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
+            throw RecipeServiceError.invalidResponse
+        }
+        
+        let decoder = JSONDecoder()
+        // We need a helper struct to decode the backend's InventoryResponse and convert it to InventoryItem
+        let backendItems = try decoder.decode([BackendInventoryResponse].self, from: data)
+        return backendItems.map { $0.toInventoryItem() }
+    }
+
+    /// Fetch user's macro goals.
+    func fetchPreferences() async throws -> MacroGoals {
+        guard let url = URL(string: "\(baseURL)/api/pantry/preferences") else {
+            throw RecipeServiceError.invalidURL
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        let (data, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
+            throw RecipeServiceError.invalidResponse
+        }
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        return try decoder.decode(MacroGoals.self, from: data)
+    }
+}
+
+// MARK: - Backend Mappings
+
+struct MacroGoals: Codable {
+    let calories: Double?
+    let protein: Double?
+    let carbs: Double?
+    let fat: Double?
+    
+    enum CodingKeys: String, CodingKey {
+        case calories = "target_calories"
+        case protein = "target_protein"
+        case carbs = "target_carbs"
+        case fat = "target_fat"
+    }
+}
+
+struct BackendInventoryResponse: Codable {
+    let id: Int
+    let itemId: Int
+    let quantity: Double
+    let unit: String
+    let item: BackendPantryItem
+    
+    enum CodingKeys: String, CodingKey {
+        case id, quantity, unit, item
+        case itemId = "item_id"
+    }
+    
+    func toInventoryItem() -> InventoryItem {
+        InventoryItem(
+            barcode: item.barcode ?? "",
+            productName: item.name,
+            brand: item.brand ?? "",
+            imageURL: nil, // Backend doesn't store this yet
+            quantity: "\(quantity) \(unit)",
+            calories: item.calories,
+            protein: item.protein,
+            carbs: item.carbs,
+            fat: item.fat
+        )
+    }
+}
+
+struct BackendPantryItem: Codable {
+    let name: String
+    let barcode: String?
+    let brand: String?
+    let calories: Double?
+    let protein: Double?
+    let carbs: Double?
+    let fat: Double?
+    
+    enum CodingKeys: String, CodingKey {
+        case name, barcode, brand
+        case calories = "calories_per_serving"
+        case protein = "protein_per_serving"
+        case carbs = "carbs_per_serving"
+        case fat = "fat_per_serving"
+    }
 }

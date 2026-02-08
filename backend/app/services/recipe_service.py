@@ -16,24 +16,24 @@ import os
 from typing import Optional, List, Dict, Union
 import google.generativeai as genai
 
+from ..config import settings
 from .recipe_image_service import generate_recipe_image_url
 
 # Initialize APIs
-SPOONACULAR_API_KEY = os.getenv("SPOONACULAR_API_KEY", "YOUR_KEY_HERE")
+SPOONACULAR_API_KEY = settings.SPOONACULAR_API_KEY
 SPOONACULAR_BASE_URL = "https://api.spoonacular.com"
 
 
 class RecipeService:
     def __init__(self):
-        self.spoonacular_key = SPOONACULAR_API_KEY
-
         # Configure Gemini
-        gemini_api_key = os.getenv("GEMINI_API_KEY")
+        gemini_api_key = settings.GEMINI_API_KEY
         if gemini_api_key:
             genai.configure(api_key=gemini_api_key)
-            self.model = genai.GenerativeModel('gemini-1.5-flash')
+            self.model = genai.GenerativeModel('gemini-flash-latest')
         else:
             self.model = None
+            print("WARNING: GEMINI_API_KEY not found. Recipe generation will fail.")
 
     async def get_daily_suggestion(
             self,
@@ -43,329 +43,188 @@ class RecipeService:
         """
         Main function: Get a single recipe suggestion for dinner tonight
         """
-        # 1. Get user constraints from your pantry API
-        async with httpx.AsyncClient() as client:
-            # Get dietary restrictions
-            prefs_response = await client.get(
-                f"{pantry_api_url}/preferences/allergens",
-                headers={"user-id": str(user_id)}  # You'll need proper auth
-            )
-            allergens = prefs_response.json().get("dietary_restrictions", [])
+        # 1. Get user constraints
+        allergens, available_ingredients = await self._get_user_context(user_id, pantry_api_url)
 
-            # Get available ingredients
-            inventory_response = await client.get(
-                f"{pantry_api_url}/inventory",
-                headers={"user-id": str(user_id)}
-            )
-            inventory = inventory_response.json()
-            available_ingredients = [item["item"]["name"] for item in inventory]
-
-        # 2. Search Spoonacular for matching recipes
-        recipes = await self._search_recipes(
-            dietary_restrictions=allergens,
+        # 2. Generate recipes using Gemini
+        recipes = await self._generate_recipes_with_gemini(
             ingredients=available_ingredients,
-            number=5  # Get 5 options, pick best one
+            dietary_restrictions=allergens,
+            count=1
         )
 
         if not recipes:
-            return {"error": "No recipes found matching your constraints"}
+            return {"error": "Could not generate recipe. Please try again."}
 
-        # 3. Get the best recipe (first one)
+        # 3. Get the first recipe
         best_recipe = recipes[0]
-
-        # 4. Get detailed recipe info from Spoonacular
-        recipe_details = await self._get_recipe_details(best_recipe["id"])
-
-        # 5. Simplify cooking steps using AI
-        simplified_steps = await self._simplify_with_ai(
-            recipe_name=recipe_details["title"],
-            original_steps=recipe_details["instructions"],
-            max_steps=5
+        
+        # 4. Generate Image if possible
+        best_recipe["image_url"] = await asyncio.to_thread(
+            generate_recipe_image_url, best_recipe["name"]
         )
 
-        # 6. Build final recipe object
-        return {
-            "recipe_id": str(best_recipe["id"]),
-            "name": recipe_details["title"],
-            "servings": recipe_details["servings"],
-            "ready_in_minutes": recipe_details["readyInMinutes"],
-            "image_url": recipe_details["image"],
-
-            # Macros (per serving)
-            "calories_per_serving": recipe_details["nutrition"]["nutrients"][0]["amount"],
-            "protein_per_serving": self._get_nutrient(recipe_details["nutrition"], "Protein"),
-            "carbs_per_serving": self._get_nutrient(recipe_details["nutrition"], "Carbohydrates"),
-            "fat_per_serving": self._get_nutrient(recipe_details["nutrition"], "Fat"),
-
-            # Ingredients
-            "ingredients": [
-                {
-                    "name": ing["name"],
-                    "amount": ing["amount"],
-                    "unit": ing["unit"]
-                }
-                for ing in recipe_details["extendedIngredients"]
-            ],
-
-            # AI-simplified steps (max 5)
-            "steps": simplified_steps,
-
-            # Metadata
-            "source": "spoonacular",
-            "spoonacular_url": recipe_details["sourceUrl"]
-        }
-
-    RECIPE_ENGINE_COUNT = 4  # Exactly 4 recipes per request
+        return best_recipe
 
     async def get_suggestions(
             self,
             user_id: int,
-            count: int = RECIPE_ENGINE_COUNT,
+            count: int = 4,
             allergens_override: Optional[List[str]] = None,
             pantry_api_url: str = "http://localhost:8000/api/pantry"
-    ) -> Union[List[Dict], Dict]:
+    ) -> List[Dict]:
         """
-        Get exactly `count` recipe suggestions (default 4) with unique AI image per recipe.
-        allergens_override: if provided (e.g. ["egg_free", "dairy_free", "peanut_free"]),
-            use these for Spoonacular intolerances instead of pantry preferences.
-        Returns a list of recipes, or {"error": "message"} on service failure.
-        Empty list means no recipes found (valid outcome), not a failure.
+        Get exactly `count` recipe suggestions with unique AI image per recipe.
         """
         try:
-            # 1. Get user constraints (allow 404 -> empty lists); use override when provided
-            allergens: List[str] = []
-            available_ingredients: List[str] = []
+            # 1. Get user constraints
             if allergens_override is not None:
                 allergens = list(allergens_override)
+                # Still need ingredients
+                _, available_ingredients = await self._get_user_context(user_id, pantry_api_url)
             else:
-                async with httpx.AsyncClient() as client:
-                    try:
-                        prefs_response = await client.get(
-                            f"{pantry_api_url}/preferences/allergens",
-                            headers={"user-id": str(user_id)},
-                            timeout=5.0,
-                        )
-                        if prefs_response.status_code == 200:
-                            allergens = prefs_response.json().get("dietary_restrictions", []) or []
-                    except Exception:
-                        pass
-                    try:
-                        inv_response = await client.get(
-                            f"{pantry_api_url}/inventory",
-                            headers={"user-id": str(user_id)},
-                            timeout=5.0,
-                        )
-                        if inv_response.status_code == 200:
-                            inventory = inv_response.json()
-                            available_ingredients = [item.get("item", {}).get("name") for item in inventory if item.get("item")]
-                            available_ingredients = [x for x in available_ingredients if x]
-                    except Exception:
-                        pass
+                allergens, available_ingredients = await self._get_user_context(user_id, pantry_api_url)
 
-            # 2. Search Spoonacular (request a few extra in case some fail)
-            recipes = await self._search_recipes(
-                dietary_restrictions=allergens,
+            # 2. Generate recipes with Gemini
+            # If no ingredients, assume staples
+            if not available_ingredients:
+                available_ingredients = ["common pantry staples"]
+
+            results = await self._generate_recipes_with_gemini(
                 ingredients=available_ingredients,
-                number=max(count, 8),
+                dietary_restrictions=allergens,
+                count=count
             )
-            if not recipes:
-                return []
 
-            results: List[Dict] = []
-            for i, hit in enumerate(recipes):
-                if len(results) >= count:
-                    break
-                try:
-                    recipe_details = await self._get_recipe_details(hit["id"])
-                except Exception:
-                    continue
-                name = recipe_details.get("title") or hit.get("title") or "Recipe"
-                instructions = recipe_details.get("instructions") or ""
-                nutrition = recipe_details.get("nutrition") or {}
-                nutrients = nutrition.get("nutrients") or []
-                calories = nutrients[0]["amount"] if nutrients else 0.0
-
-                simplified_steps = await self._simplify_with_ai(
-                    recipe_name=name,
-                    original_steps=instructions,
-                    max_steps=5,
+            # 3. Generate Images for each
+            for recipe in results:
+                recipe["image_url"] = await asyncio.to_thread(
+                    generate_recipe_image_url, recipe["name"]
                 )
-                # Generate unique AI image for this recipe (non-blocking)
-                image_url = recipe_details.get("image")
-                ai_image_url = await asyncio.to_thread(generate_recipe_image_url, name)
-                if ai_image_url:
-                    image_url = ai_image_url
 
-                results.append({
-                    "recipe_id": str(hit["id"]),
-                    "name": name,
-                    "servings": recipe_details.get("servings", 2),
-                    "ready_in_minutes": recipe_details.get("readyInMinutes", 30),
-                    "image_url": image_url,
-                    "calories_per_serving": calories,
-                    "protein_per_serving": self._get_nutrient(nutrition, "Protein"),
-                    "carbs_per_serving": self._get_nutrient(nutrition, "Carbohydrates"),
-                    "fat_per_serving": self._get_nutrient(nutrition, "Fat"),
-                    "ingredients": [
-                        {"name": ing.get("name"), "amount": ing.get("amount"), "unit": ing.get("unit", "")}
-                        for ing in recipe_details.get("extendedIngredients", [])
-                    ],
-                    "steps": simplified_steps,
-                    "source": "spoonacular",
-                    "spoonacular_url": recipe_details.get("sourceUrl"),
-                })
-            return results[:count]
+            return results
         except Exception as e:
-            return {"error": f"Recipe service temporarily unavailable: {e!s}"}
+            print(f"Error in get_suggestions: {e}")
+            return []
 
-    async def _search_recipes(
+    async def _get_user_context(self, user_id: int, pantry_api_url: str):
+        """Helper to get allergens and inventory"""
+        allergens = []
+        available_ingredients = []
+        
+        async with httpx.AsyncClient() as client:
+            try:
+                # Dietary restrictions
+                prefs_response = await client.get(
+                    f"{pantry_api_url}/preferences/allergens",
+                    headers={"user-id": str(user_id)},
+                    timeout=5.0
+                )
+                if prefs_response.status_code == 200:
+                    allergens = prefs_response.json().get("dietary_restrictions", []) or []
+            except Exception:
+                pass
+
+            try:
+                # Inventory
+                inv_response = await client.get(
+                    f"{pantry_api_url}/inventory",
+                    headers={"user-id": str(user_id)},
+                    timeout=5.0
+                )
+                if inv_response.status_code == 200:
+                    inventory = inv_response.json()
+                    found = set()
+                    for item in inventory:
+                        name = item.get("item", {}).get("name")
+                        if name and name not in found:
+                            found.add(name)
+                            available_ingredients.append(name)
+            except Exception:
+                pass
+        
+        return allergens, available_ingredients
+
+    async def _generate_recipes_with_gemini(
             self,
-            dietary_restrictions: List[str],
             ingredients: List[str],
-            number: int = 5
+            dietary_restrictions: List[str],
+            count: int
     ) -> List[Dict]:
-        """Search Spoonacular for recipes matching constraints"""
-
-        # Convert dietary restrictions to Spoonacular format
-        intolerances = self._convert_allergens_to_spoonacular(dietary_restrictions)
-        diet = self._get_diet_type(dietary_restrictions)
-
-        # Build query params
-        params = {
-            "apiKey": self.spoonacular_key,
-            "number": number,
-            "addRecipeInformation": True,
-            "fillIngredients": True,
-            "includeNutrition": True,
-            "instructionsRequired": True,
-            "maxReadyTime": 45,  # Max 45 minutes (busy parents!)
-            "sort": "popularity"
-        }
-
-        # Add dietary constraints
-        if intolerances:
-            params["intolerances"] = ",".join(intolerances)
-        if diet:
-            params["diet"] = diet
-
-        # Search by ingredients user has
-        if ingredients:
-            # Limit to top 5 ingredients to avoid too narrow search
-            params["includeIngredients"] = ",".join(ingredients[:5])
-            params["ranking"] = 2  # Maximize used ingredients
-
-        async with httpx.AsyncClient() as client:
-            response = await client.get(
-                f"{SPOONACULAR_BASE_URL}/recipes/complexSearch",
-                params=params,
-                timeout=10.0
-            )
-
-            if response.status_code != 200:
-                return []
-
-            data = response.json()
-            return data.get("results", [])
-
-    async def _get_recipe_details(self, recipe_id: int) -> Dict:
-        """Get full recipe details including nutrition and instructions"""
-        params = {
-            "apiKey": self.spoonacular_key,
-            "includeNutrition": True
-        }
-
-        async with httpx.AsyncClient() as client:
-            response = await client.get(
-                f"{SPOONACULAR_BASE_URL}/recipes/{recipe_id}/information",
-                params=params,
-                timeout=10.0
-            )
-            return response.json()
-
-    async def _simplify_with_ai(
-            self,
-            recipe_name: str,
-            original_steps: str,
-            max_steps: int = 5
-    ) -> List[str]:
         """
-        Use Gemini AI to simplify cooking instructions to max 5 steps
-        Makes recipes less overwhelming for tired parents!
+        Use Gemini to generate full recipe JSONs based on ingredients.
         """
         if not self.model:
-            # Fallback if no API key - return original or simplified version
-            return ["AI simplification unavailable. Check GEMINI_API_KEY."]
+            return []
 
-        prompt = f"""You are a helpful cooking assistant for busy working parents.
+        ing_str = ", ".join(ingredients)
+        diet_str = ", ".join(dietary_restrictions) if dietary_restrictions else "None"
 
-Recipe: {recipe_name}
-
-Original instructions:
-{original_steps}
-
-Task: Simplify these cooking instructions to EXACTLY {max_steps} clear, actionable steps.
+        # Use prompt for strict JSON
+        prompt = f"""
+You are a creative chef AI. Create {count} unique, delicious dinner recipes using these ingredients: {ing_str}.
+Dietary Restrictions: {diet_str}.
+Target Audience: Busy working parents. 
 
 Requirements:
-- Maximum {max_steps} steps
-- Each step should be 1-2 sentences
-- Use simple language
-- Focus on essential actions only
-- Combine similar tasks when possible
-- Be encouraging and friendly
+1. Use provided ingredients where possible.
+2. Return a STRICT JSON ARRAY of objects.
+3. No markdown formatting (no ```json). Just the raw JSON string.
 
-Return ONLY a numbered list of {max_steps} steps, nothing else."""
-
+JSON Structure per recipe:
+{{
+    "recipe_id": "generate_uuid",
+    "name": "Recipe Name",
+    "servings": 4,
+    "ready_in_minutes": 30,
+    "calories_per_serving": 500,
+    "protein_per_serving": 30,
+    "carbs_per_serving": 40,
+    "fat_per_serving": 20,
+    "ingredients": [
+      {{ "name": "Ingredient Name", "amount": 1, "unit": "cup" }}
+    ],
+    "steps": [
+      "Step 1...",
+      "Step 2..."
+    ]
+}}
+"""
+        print(f"DEBUG: Generating {count} recipes with Gemini...")
         try:
-            response = self.model.generate_content(prompt)
-            response_text = response.text
-
-            # Parse response into list
-            steps = []
-            for line in response_text.split("\n"):
-                line = line.strip()
-                # Remove numbering (1., 2., etc.)
-                if line and line[0].isdigit():
-                    step_text = line.split(".", 1)[1].strip() if "." in line else line
-                    steps.append(step_text)
-
-            return steps[:max_steps]  # Ensure max steps
+            # Using asyncio.to_thread since generate_content is blocking
+            response = await asyncio.to_thread(self.model.generate_content, prompt)
+            completion = response.text
+            
+            # Clean up potential markdown code blocks
+            clean_json = completion.replace("```json", "").replace("```", "").strip()
+            
+            import json
+            import uuid
+            
+            data = json.loads(clean_json)
+            
+            # Post-process to ensure valid format
+            final_recipes = []
+            if isinstance(data, list):
+                for r in data:
+                    # Enrich with missing fields if needed
+                    if "recipe_id" not in r or r["recipe_id"] == "generate_uuid":
+                        r["recipe_id"] = str(uuid.uuid4())
+                    
+                    # Ensure source is set
+                    r["source"] = "gemini_ai"
+                    r["spoonacular_url"] = None
+                    r["image_url"] = None # Will be filled later
+                    
+                    final_recipes.append(r)
+            
+            print(f"DEBUG: Generated {len(final_recipes)} recipes")
+            return final_recipes
 
         except Exception as e:
-            print(f"Error calling Gemini API: {e}")
-            # Fallback to simple step extraction from original
-            return [f"Step {i + 1}: See original recipe for instructions" for i in range(max_steps)]
-
-    def _convert_allergens_to_spoonacular(self, restrictions: List[str]) -> List[str]:
-        """Convert our allergen format to Spoonacular intolerances"""
-        mapping = {
-            "dairy_free": "dairy",
-            "egg_free": "egg",
-            "gluten_free": "gluten",
-            "peanut_free": "peanut",
-            "nut_free": "tree nut",
-            "soy_free": "soy",
-            "shellfish_free": "shellfish",
-            "fish_free": "seafood"
-        }
-
-        return [mapping[r] for r in restrictions if r in mapping]
-
-    def _get_diet_type(self, restrictions: List[str]) -> Optional[str]:
-        """Get diet type for Spoonacular from restrictions"""
-        if "vegan" in restrictions:
-            return "vegan"
-        if "vegetarian" in restrictions:
-            return "vegetarian"
-        if "keto" in restrictions:
-            return "ketogenic"
-        return None
-
-    def _get_nutrient(self, nutrition: Dict, nutrient_name: str) -> float:
-        """Extract specific nutrient from Spoonacular nutrition data"""
-        for nutrient in nutrition.get("nutrients", []):
-            if nutrient["name"] == nutrient_name:
-                return nutrient["amount"]
-        return 0.0
+            print(f"Error generating recipes with Gemini: {e}")
+            return []
 
 
 # Singleton instance

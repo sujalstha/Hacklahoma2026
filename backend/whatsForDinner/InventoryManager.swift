@@ -7,10 +7,15 @@ class InventoryManager: ObservableObject {
     @Published var isLoading = false
     @Published var errorMessage: String?
     
+    private let pantryService = PantryService()
     private let userDefaultsKey = "saved_inventory_items"
     
     init() {
-        loadItems()
+        // Load local first for speed, then sync with backend
+        loadLocalItems()
+        Task {
+            await syncWithBackend()
+        }
     }
     
     // MARK: - Add Item from Barcode
@@ -24,12 +29,14 @@ class InventoryManager: ObservableObject {
             let product = try await OpenFoodFactsService.shared.fetchProduct(barcode: barcode)
             let newItem = InventoryItem(from: product)
             
-            // Check if item already exists
+            // Check if item already exists locally
             if items.contains(where: { $0.barcode == barcode }) {
                 errorMessage = "Item already in inventory"
             } else {
                 items.insert(newItem, at: 0) // Add to beginning
-                saveItems()
+                saveLocalItems()
+                
+                // TODO: Optional - sync new item to backend as well
             }
             
         } catch let error as OpenFoodFactsError {
@@ -45,22 +52,46 @@ class InventoryManager: ObservableObject {
     
     func removeItem(_ item: InventoryItem) {
         items.removeAll { $0.id == item.id }
-        saveItems()
+        saveLocalItems()
     }
     
     func removeItems(at offsets: IndexSet) {
         items.remove(atOffsets: offsets)
-        saveItems()
+        saveLocalItems()
     }
     
     func clearAll() {
         items.removeAll()
-        saveItems()
+        saveLocalItems()
     }
     
-    // MARK: - Persistence
+    // MARK: - Persistence & Sync
     
-    private func saveItems() {
+    @MainActor
+    func syncWithBackend() async {
+        do {
+            let backendItems = try await pantryService.fetchInventory()
+            if !backendItems.isEmpty {
+                // Merge or replace. For now, let's prioritize backend for preloaded items
+                // but keep any locally scanned items not in backend
+                var currentBarcodes = Set(items.map { $0.barcode })
+                let newBackendItems = backendItems.filter { !currentBarcodes.contains($0.barcode) }
+                
+                if !newBackendItems.isEmpty {
+                    items.append(contentsOf: newBackendItems)
+                    saveLocalItems()
+                }
+            }
+        } catch {
+            print("Failed to sync with backend: \(error.localizedDescription)")
+            // If local is also empty, show demo data or error
+            if items.isEmpty {
+                errorMessage = "Backend offline. Using local data."
+            }
+        }
+    }
+    
+    private func saveLocalItems() {
         guard let encoded = try? JSONEncoder().encode(items) else {
             print("Failed to encode inventory items")
             return
@@ -68,10 +99,9 @@ class InventoryManager: ObservableObject {
         UserDefaults.standard.set(encoded, forKey: userDefaultsKey)
     }
     
-    private func loadItems() {
+    private func loadLocalItems() {
         guard let data = UserDefaults.standard.data(forKey: userDefaultsKey),
               let decoded = try? JSONDecoder().decode([InventoryItem].self, from: data) else {
-            // Load sample data for demo purposes
             items = []
             return
         }
