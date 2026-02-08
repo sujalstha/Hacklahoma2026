@@ -12,10 +12,9 @@ from ..schemas.pantry import (
     MacroSummary, Category
 )
 from ..models.pantry import UnitType
-from ..import crud
-from ..deps import get_db, get_current_user
-from ..crud import pantry as crud
-# from deps import get_db, get_current_user  # You'll need to implement these
+import pantry as crud
+
+from ..deps import get_db, get_current_user  # You'll need to implement these
 
 router = APIRouter(prefix="/api/pantry", tags=["pantry"])
 
@@ -24,8 +23,8 @@ router = APIRouter(prefix="/api/pantry", tags=["pantry"])
 
 @router.post("/items", response_model=PantryItemResponse, status_code=status.HTTP_201_CREATED)
 def create_item(
-    item: PantryItemCreate,
-    db: Session = Depends(get_db)
+        item: PantryItemCreate,
+        db: Session = Depends(get_db)
 ):
     """
     Create a new pantry item (food/ingredient type).
@@ -36,8 +35,8 @@ def create_item(
 
 @router.get("/items/{item_id}", response_model=PantryItemResponse)
 def get_item(
-    item_id: int,
-    db: Session = Depends(get_db)
+        item_id: int,
+        db: Session = Depends(get_db)
 ):
     """Get pantry item by ID"""
     item = crud.get_pantry_item(db, item_id)
@@ -48,11 +47,11 @@ def get_item(
 
 @router.get("/items", response_model=List[PantryItemResponse])
 def search_items(
-    query: Optional[str] = Query(None, description="Search by name or brand"),
-    category: Optional[Category] = Query(None, description="Filter by category"),
-    skip: int = Query(0, ge=0),
-    limit: int = Query(100, ge=1, le=500),
-    db: Session = Depends(get_db)
+        query: Optional[str] = Query(None, description="Search by name or brand"),
+        category: Optional[Category] = Query(None, description="Filter by category"),
+        skip: int = Query(0, ge=0),
+        limit: int = Query(100, ge=1, le=500),
+        db: Session = Depends(get_db)
 ):
     """
     Search pantry items by name/brand or filter by category.
@@ -63,9 +62,9 @@ def search_items(
 
 @router.patch("/items/{item_id}", response_model=PantryItemResponse)
 def update_item(
-    item_id: int,
-    item_update: PantryItemUpdate,
-    db: Session = Depends(get_db)
+        item_id: int,
+        item_update: PantryItemUpdate,
+        db: Session = Depends(get_db)
 ):
     """Update pantry item details"""
     item = crud.update_pantry_item(db, item_id, item_update)
@@ -76,8 +75,8 @@ def update_item(
 
 @router.delete("/items/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_item(
-    item_id: int,
-    db: Session = Depends(get_db)
+        item_id: int,
+        db: Session = Depends(get_db)
 ):
     """Delete pantry item (will also remove from all user inventories)"""
     if not crud.delete_pantry_item(db, item_id):
@@ -88,15 +87,15 @@ def delete_item(
 
 @router.post("/scan", response_model=BarcodeScanResponse)
 def scan_barcode(
-    scan_request: BarcodeScanRequest,
-    db: Session = Depends(get_db)
+        scan_request: BarcodeScanRequest,
+        db: Session = Depends(get_db)
 ):
     """
     Scan a barcode and return the pantry item if found.
     If not found, frontend can prompt user to manually enter item details.
     """
     item = crud.get_pantry_item_by_barcode(db, scan_request.barcode)
-    
+
     if item:
         return BarcodeScanResponse(
             found=True,
@@ -114,10 +113,10 @@ def scan_barcode(
 
 @router.get("/inventory", response_model=List[InventoryResponse])
 def get_my_inventory(
-    location: Optional[str] = Query(None, description="Filter by location (fridge, pantry, freezer)"),
-    low_stock_only: bool = Query(False, description="Show only low stock items"),
-    current_user: dict = Depends(get_current_user),
-    db: Session = Depends(get_db)
+        location: Optional[str] = Query(None, description="Filter by location (fridge, pantry, freezer)"),
+        low_stock_only: bool = Query(False, description="Show only low stock items"),
+        current_user: dict = Depends(get_current_user),
+        db: Session = Depends(get_db)
 ):
     """Get current user's inventory"""
     return crud.get_user_inventory(db, current_user["id"], location, low_stock_only)
@@ -125,9 +124,9 @@ def get_my_inventory(
 
 @router.post("/inventory", response_model=InventoryResponse, status_code=status.HTTP_201_CREATED)
 def add_to_inventory(
-    item: InventoryCreate,
-    current_user: dict = Depends(get_current_user),
-    db: Session = Depends(get_db)
+        item: InventoryCreate,
+        current_user: dict = Depends(get_current_user),
+        db: Session = Depends(get_db)
 ):
     """
     Add item to inventory. If item already exists, increases quantity.
@@ -138,21 +137,21 @@ def add_to_inventory(
 
 @router.post("/inventory/batch", response_model=InventoryBatchResponse)
 def batch_add_to_inventory(
-    batch: InventoryBatchAdd,
-    current_user: dict = Depends(get_current_user),
-    db: Session = Depends(get_db)
+        batch: InventoryBatchAdd,
+        current_user: dict = Depends(get_current_user),
+        db: Session = Depends(get_db)
 ):
     """Add multiple items to inventory at once"""
     results = []
     errors = []
-    
+
     for item in batch.items:
         try:
             result = crud.create_inventory_item(db, current_user["id"], item)
             results.append(result)
         except Exception as e:
             errors.append(f"Failed to add item {item.item_id}: {str(e)}")
-    
+
     return InventoryBatchResponse(
         success_count=len(results),
         failed_count=len(errors),
@@ -163,9 +162,9 @@ def batch_add_to_inventory(
 
 @router.get("/inventory/{inventory_id}", response_model=InventoryResponse)
 def get_inventory_item(
-    inventory_id: int,
-    current_user: dict = Depends(get_current_user),
-    db: Session = Depends(get_db)
+        inventory_id: int,
+        current_user: dict = Depends(get_current_user),
+        db: Session = Depends(get_db)
 ):
     """Get specific inventory item"""
     item = crud.get_inventory_item(db, inventory_id, current_user["id"])
@@ -176,10 +175,10 @@ def get_inventory_item(
 
 @router.patch("/inventory/{inventory_id}", response_model=InventoryResponse)
 def update_inventory(
-    inventory_id: int,
-    item_update: InventoryUpdate,
-    current_user: dict = Depends(get_current_user),
-    db: Session = Depends(get_db)
+        inventory_id: int,
+        item_update: InventoryUpdate,
+        current_user: dict = Depends(get_current_user),
+        db: Session = Depends(get_db)
 ):
     """Update inventory item (quantity, location, etc.)"""
     item = crud.update_inventory_item(db, inventory_id, current_user["id"], item_update)
@@ -190,10 +189,10 @@ def update_inventory(
 
 @router.post("/inventory/{inventory_id}/adjust", response_model=InventoryResponse)
 def adjust_quantity(
-    inventory_id: int,
-    quantity_delta: float = Query(..., description="Amount to add (positive) or subtract (negative)"),
-    current_user: dict = Depends(get_current_user),
-    db: Session = Depends(get_db)
+        inventory_id: int,
+        quantity_delta: float = Query(..., description="Amount to add (positive) or subtract (negative)"),
+        current_user: dict = Depends(get_current_user),
+        db: Session = Depends(get_db)
 ):
     """
     Adjust inventory quantity by a delta.
@@ -207,9 +206,9 @@ def adjust_quantity(
 
 @router.delete("/inventory/{inventory_id}", status_code=status.HTTP_204_NO_CONTENT)
 def remove_from_inventory(
-    inventory_id: int,
-    current_user: dict = Depends(get_current_user),
-    db: Session = Depends(get_db)
+        inventory_id: int,
+        current_user: dict = Depends(get_current_user),
+        db: Session = Depends(get_db)
 ):
     """Remove item from inventory"""
     if not crud.delete_inventory_item(db, inventory_id, current_user["id"]):
@@ -220,46 +219,47 @@ def remove_from_inventory(
 
 @router.get("/preferences", response_model=UserPreferencesResponse)
 def get_my_preferences(
-    current_user: dict = Depends(get_current_user),
-    db: Session = Depends(get_db)
+        current_user: dict = Depends(get_current_user),
+        db: Session = Depends(get_db)
 ):
     """Get user's dietary preferences and macro goals"""
     prefs = crud.get_user_preferences(db, current_user["id"])
     if not prefs:
         raise HTTPException(status_code=404, detail="User preferences not found. Please create them first.")
-    return prefs
+    return UserPreferencesResponse.from_db(prefs)
 
 
 @router.post("/preferences", response_model=UserPreferencesResponse, status_code=status.HTTP_201_CREATED)
 def create_my_preferences(
-    prefs: UserPreferencesCreate,
-    current_user: dict = Depends(get_current_user),
-    db: Session = Depends(get_db)
+        prefs: UserPreferencesCreate,
+        current_user: dict = Depends(get_current_user),
+        db: Session = Depends(get_db)
 ):
     """
     Set dietary preferences, allergens, and macro goals.
     This info will be used to filter recipe suggestions.
     """
-    return crud.create_user_preferences(db, current_user["id"], prefs)
+    db_prefs = crud.create_user_preferences(db, current_user["id"], prefs)
+    return UserPreferencesResponse.from_db(db_prefs)
 
 
 @router.patch("/preferences", response_model=UserPreferencesResponse)
 def update_my_preferences(
-    prefs_update: UserPreferencesUpdate,
-    current_user: dict = Depends(get_current_user),
-    db: Session = Depends(get_db)
+        prefs_update: UserPreferencesUpdate,
+        current_user: dict = Depends(get_current_user),
+        db: Session = Depends(get_db)
 ):
     """Update dietary preferences and macro goals"""
     prefs = crud.update_user_preferences(db, current_user["id"], prefs_update)
     if not prefs:
         raise HTTPException(status_code=404, detail="User preferences not found")
-    return prefs
+    return UserPreferencesResponse.from_db(prefs)
 
 
 @router.get("/preferences/allergens")
 def get_my_allergens(
-    current_user: dict = Depends(get_current_user),
-    db: Session = Depends(get_db)
+        current_user: dict = Depends(get_current_user),
+        db: Session = Depends(get_db)
 ):
     """
     Get user's allergens/restrictions as a simple list.
@@ -276,9 +276,9 @@ def get_my_allergens(
 
 @router.post("/dinners", response_model=DinnerHistoryResponse, status_code=status.HTTP_201_CREATED)
 def log_dinner(
-    dinner: DinnerHistoryCreate,
-    current_user: dict = Depends(get_current_user),
-    db: Session = Depends(get_db)
+        dinner: DinnerHistoryCreate,
+        current_user: dict = Depends(get_current_user),
+        db: Session = Depends(get_db)
 ):
     """
     Log a dinner that was cooked.
@@ -289,9 +289,9 @@ def log_dinner(
 
 @router.get("/dinners", response_model=List[DinnerHistoryResponse])
 def get_dinner_history(
-    days: int = Query(30, ge=1, le=365, description="Number of days of history to retrieve"),
-    current_user: dict = Depends(get_current_user),
-    db: Session = Depends(get_db)
+        days: int = Query(30, ge=1, le=365, description="Number of days of history to retrieve"),
+        current_user: dict = Depends(get_current_user),
+        db: Session = Depends(get_db)
 ):
     """Get dinner history for the last N days"""
     return crud.get_dinner_history(db, current_user["id"], days)
@@ -299,9 +299,9 @@ def get_dinner_history(
 
 @router.get("/dinners/{dinner_id}", response_model=DinnerHistoryResponse)
 def get_dinner(
-    dinner_id: int,
-    current_user: dict = Depends(get_current_user),
-    db: Session = Depends(get_db)
+        dinner_id: int,
+        current_user: dict = Depends(get_current_user),
+        db: Session = Depends(get_db)
 ):
     """Get specific dinner entry"""
     dinner = crud.get_dinner_by_id(db, dinner_id, current_user["id"])
@@ -312,10 +312,10 @@ def get_dinner(
 
 @router.patch("/dinners/{dinner_id}", response_model=DinnerHistoryResponse)
 def update_dinner(
-    dinner_id: int,
-    dinner_update: DinnerHistoryUpdate,
-    current_user: dict = Depends(get_current_user),
-    db: Session = Depends(get_db)
+        dinner_id: int,
+        dinner_update: DinnerHistoryUpdate,
+        current_user: dict = Depends(get_current_user),
+        db: Session = Depends(get_db)
 ):
     """Update dinner (e.g., add rating or notes after eating)"""
     dinner = crud.update_dinner_history(db, dinner_id, current_user["id"], dinner_update)
@@ -326,9 +326,9 @@ def update_dinner(
 
 @router.delete("/dinners/{dinner_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_dinner(
-    dinner_id: int,
-    current_user: dict = Depends(get_current_user),
-    db: Session = Depends(get_db)
+        dinner_id: int,
+        current_user: dict = Depends(get_current_user),
+        db: Session = Depends(get_db)
 ):
     """Delete a dinner history entry"""
     if not crud.delete_dinner_history(db, dinner_id, current_user["id"]):
@@ -337,9 +337,9 @@ def delete_dinner(
 
 @router.get("/dinners/macros/summary", response_model=MacroSummary)
 def get_macro_summary(
-    days: int = Query(7, ge=1, le=365, description="Number of days to calculate averages for"),
-    current_user: dict = Depends(get_current_user),
-    db: Session = Depends(get_db)
+        days: int = Query(7, ge=1, le=365, description="Number of days to calculate averages for"),
+        current_user: dict = Depends(get_current_user),
+        db: Session = Depends(get_db)
 ):
     """
     Get macro averages for a time period.
@@ -352,13 +352,13 @@ def get_macro_summary(
 
 @router.get("/stats")
 def get_inventory_stats(
-    current_user: dict = Depends(get_current_user),
-    db: Session = Depends(get_db)
+        current_user: dict = Depends(get_current_user),
+        db: Session = Depends(get_db)
 ):
     """Get inventory statistics (total items, low stock count, etc.)"""
     inventory = crud.get_user_inventory(db, current_user["id"])
     low_stock = crud.get_user_inventory(db, current_user["id"], low_stock_only=True)
-    
+
     return {
         "total_items": len(inventory),
         "low_stock_count": len(low_stock),

@@ -1,3 +1,4 @@
+# Core FastAPI dependencies
 fastapi==0.115.0
 sqlalchemy==2.0.36
 pydantic==2.10.3
@@ -6,5 +7,6 @@ httpx==0.28.1
 python-multipart==0.0.18
 uvicorn==0.34.0
 
-anthropic==0.42.0
-apscheduler==3.10.4
+# Recipe system dependencies
+google-generativeai==0.8.3  # Gemini AI for simplifying cooking steps
+apscheduler==3.10.4         # For 5 PM scheduler (optional)
