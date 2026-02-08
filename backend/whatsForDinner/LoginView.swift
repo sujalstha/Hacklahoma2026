@@ -1,112 +1,99 @@
+// LoginView.swift
 import SwiftUI
-import Supabase
 
 struct LoginView: View {
-    let supabase: SupabaseClient
-
-    @State private var email = ""
-    @State private var password = ""
-    @State private var isLoading = false
-    @State private var errorMessage: String?
     @State private var isLoggedIn = false
-
+    
     var body: some View {
         NavigationStack {
             if isLoggedIn {
-                // After login, ONLY show the main app
+                // Show main app
                 MainTabView()
+                    .navigationBarBackButtonHidden()
             } else {
-                VStack(spacing: 16) {
-                    Text("Welcome Back")
-                        .font(.largeTitle)
-                        .bold()
-                        .frame(maxWidth: .infinity, alignment: .leading)
-
-                    VStack(spacing: 12) {
-                        TextField("Email", text: $email)
-                            .textInputAutocapitalization(.never)
-                            .keyboardType(.emailAddress)
-                            .autocorrectionDisabled()
-                            .textContentType(.username)
-                            .padding()
-                            .background(.thinMaterial)
-                            .clipShape(RoundedRectangle(cornerRadius: 12))
-
-                        SecureField("Password", text: $password)
-                            .textContentType(.password)
-                            .padding()
-                            .background(.thinMaterial)
-                            .clipShape(RoundedRectangle(cornerRadius: 12))
-                    }
-
-                    if let errorMessage {
-                        Text(errorMessage)
-                            .foregroundStyle(.red)
-                            .font(.footnote)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-
-                    Button {
-                        Task { await login() }
-                    } label: {
-                        HStack {
-                            if isLoading {
-                                ProgressView()
-                            }
-                            Text(isLoading ? "Signing in..." : "Sign In")
-                        }
-                        .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(isLoading || !isFormValid)
-
-                    HStack {
-                        Text("No account?")
+                // Testing login screen
+                VStack(spacing: 24) {
+                    Spacer()
+                    
+                    VStack(spacing: 16) {
+                        Image(systemName: "fork.knife.circle.fill")
+                            .font(.system(size: 80))
+                            .foregroundStyle(.green)
+                        
+                        Text("What's for Dinner?")
+                            .font(.largeTitle)
+                            .bold()
+                        
+                        Text("Your personalized meal planner")
+                            .font(.subheadline)
                             .foregroundStyle(.secondary)
-
-                        NavigationLink {
-                            SignUpView(supabase: supabase)
-                        } label: {
-                            Text("Create one")
-                        }
                     }
-                    .font(.footnote)
-
+                    
+                    Spacer()
+                    
+                    VStack(spacing: 16) {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("Testing Mode")
+                                .font(.headline)
+                            
+                            Text("Click below to test the app without authentication. Make sure your FastAPI backend is running on http://localhost:8000")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding()
+                        .background(.ultraThinMaterial)
+                        .clipShape(RoundedRectangle(cornerRadius: 16))
+                        
+                        Button {
+                            isLoggedIn = true
+                        } label: {
+                            Label("Start Testing", systemImage: "play.fill")
+                                .font(.headline)
+                                .frame(maxWidth: .infinity)
+                                .padding()
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.large)
+                        
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Features:")
+                                .font(.caption)
+                                .bold()
+                            
+                            FeatureRow(icon: "fork.knife", text: "Daily recipe suggestions")
+                            FeatureRow(icon: "brain", text: "AI-simplified cooking steps")
+                            FeatureRow(icon: "chart.bar", text: "Macro nutrition tracking")
+                            FeatureRow(icon: "shippingbox", text: "Inventory management")
+                        }
+                        .padding()
+                        .background(.ultraThinMaterial)
+                        .clipShape(RoundedRectangle(cornerRadius: 16))
+                    }
+                    
                     Spacer()
                 }
                 .padding()
-                .navigationTitle("Login")
+                .navigationTitle("Welcome")
             }
-        }
-    }
-
-    private var isFormValid: Bool {
-        email.contains("@") &&
-        email.contains(".") &&
-        password.count >= 6
-    }
-
-    // REAL SUPABASE LOGIN
-    private func login() async {
-        errorMessage = nil
-
-        guard isFormValid else {
-            errorMessage = "Enter a valid email and a password (6+ characters)."
-            return
-        }
-
-        isLoading = true
-        defer { isLoading = false }
-
-        do {
-            _ = try await supabase.auth.signIn(
-                email: email,
-                password: password
-            )
-            isLoggedIn = true
-        } catch {
-            errorMessage = error.localizedDescription
         }
     }
 }
 
+struct FeatureRow: View {
+    let icon: String
+    let text: String
+    
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: icon)
+                .foregroundStyle(.green)
+                .frame(width: 20)
+            Text(text)
+                .font(.caption)
+        }
+    }
+}
+
+#Preview {
+    LoginView()
+}
