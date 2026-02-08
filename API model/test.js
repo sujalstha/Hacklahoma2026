@@ -42,7 +42,7 @@ async function getProductByBarcode(barcode) {
 }
 
 // Example usage
-const barcode = '0041220576500'; // Example: Minute Maid Orange Juice
+const barcode = '0611269991000'; // Example: Minute Maid Orange Juice
 getProductByBarcode(barcode).then(product => {
   console.log(product);
 });
