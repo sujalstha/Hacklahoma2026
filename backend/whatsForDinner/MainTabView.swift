@@ -1,12 +1,14 @@
 import SwiftUI
 
 struct MainTabView: View {
+    @StateObject private var inventoryManager = InventoryManager()
+    
     var body: some View {
         TabView {
-            RecipesHomeView()
+            RecipesHomeView(inventoryManager: inventoryManager)
                 .tabItem { Label("Recipes", systemImage: "fork.knife") }
 
-            InventoryView()
+            InventoryView(inventoryManager: inventoryManager)
                 .tabItem { Label("Inventory", systemImage: "shippingbox") }
 
             MacrosView()
@@ -14,4 +16,3 @@ struct MainTabView: View {
         }
     }
 }
-

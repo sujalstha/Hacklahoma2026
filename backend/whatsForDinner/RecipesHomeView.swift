@@ -8,6 +8,8 @@
 import SwiftUI
 
 struct RecipesHomeView: View {
+    @ObservedObject var inventoryManager: InventoryManager
+    
     enum Filter: String, CaseIterable, Identifiable {
         case all = "All"
         case quick = "Quick"
@@ -19,6 +21,7 @@ struct RecipesHomeView: View {
     @State private var selectedFilter: Filter = .all
     @State private var showScanSheet = false
     @State private var searchText = ""
+    @State private var scannedBarcode: String?
 
     private let recipes: [Recipe] = [
         .init(title: "Chicken Bowl"),
@@ -93,11 +96,16 @@ struct RecipesHomeView: View {
             .padding()
             .navigationBarTitleDisplayMode(.inline)
             .sheet(isPresented: $showScanSheet) {
-                ScanPlaceholderView()
-                    .presentationDetents([.medium])
+                BarcodeScannerView(scannedCode: $scannedBarcode)
+            }
+            .onChange(of: scannedBarcode) { oldValue, newValue in
+                if let barcode = newValue {
+                    Task {
+                        await inventoryManager.addItem(from: barcode)
+                        scannedBarcode = nil
+                    }
+                }
             }
         }
     }
 }
-
-
