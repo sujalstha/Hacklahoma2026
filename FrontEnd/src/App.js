@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import LoginPage from './pages/LoginPage';
 import HomePage from './pages/HomePage';
+import RecipesPage from './pages/RecipesPage';
 import RecipeDetailPage from './pages/RecipeDetailPage';
 import InventoryPage from './pages/InventoryPage';
 import MacrosPage from './pages/MacrosPage';
@@ -20,6 +21,7 @@ function AppContent() {
           <Route path="/" element={<LoginPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/home" element={<HomePage />} />
+          <Route path="/recipes" element={<RecipesPage />} />
           <Route path="/recipe/:id" element={<RecipeDetailPage />} />
           <Route path="/inventory" element={<InventoryPage />} />
           <Route path="/macros" element={<MacrosPage />} />

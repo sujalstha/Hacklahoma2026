@@ -3,6 +3,7 @@ import { ArrowLeft, Calendar, TrendingUp, Flame } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import MacroRing from '../components/Macros/MacroRing';
 import MealCard from '../components/Macros/MealCard';
+import MacroPieChart from '../components/Macros/MacroPieChart';
 import './MacrosPage.css';
 
 const MacrosPage = () => {
@@ -76,7 +77,7 @@ const MacrosPage = () => {
         <button className="back-button" onClick={() => navigate(-1)}>
           <ArrowLeft size={24} />
         </button>
-        <h2>Nutrition Tracker</h2>
+        <h2>Macros</h2>
       </div>
 
       {/* Date Selector */}
@@ -98,6 +99,12 @@ const MacrosPage = () => {
           <p className="remaining-label">Remaining</p>
           <h3>{dailyGoals.calories - consumed.calories} cal</h3>
         </div>
+      </div>
+
+      {/* Parliament Pie Chart for Macros */}
+      <div className="macro-chart-section">
+        <h3>Macro Breakdown</h3>
+        <MacroPieChart consumed={consumed} />
       </div>
 
       {/* Macro Rings */}
