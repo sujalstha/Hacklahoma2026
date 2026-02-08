@@ -7,27 +7,26 @@ import SwiftUI
 
 /// Allergy filter options for recipe suggestions (backend: egg, milk, peanut).
 enum AllergyFilter: String, CaseIterable, Identifiable {
-    case all = "All"
-    case eggs = "Eggs"
+    case eggs = "Egg"
     case milk = "Milk"
     case peanuts = "Peanuts"
+    case shellfish = "Shellfish"
     var id: String { rawValue }
-    var apiValue: String? {
+    
+    var apiValue: String {
         switch self {
-        case .all: return nil
         case .eggs: return "egg"
         case .milk: return "milk"
         case .peanuts: return "peanut"
+        case .shellfish: return "shellfish"
         }
     }
 }
 
 struct RecipesHomeView: View {
     @ObservedObject var inventoryManager: InventoryManager
-
-    @State private var selectedAllergy: AllergyFilter = .all
+    @State private var selectedAllergies: Set<AllergyFilter> = []
     @State private var showScanSheet = false
-    @State private var searchText = ""
     @State private var scannedBarcode: String?
 
     @State private var recipes: [Recipe] = []
@@ -41,10 +40,11 @@ struct RecipesHomeView: View {
         NavigationStack {
             VStack(spacing: 14) {
                 header
-                filterAndSearch
+                allergyCheckboxes
                 content
             }
             .padding()
+            .lightBackgroundStyle()
             .navigationBarTitleDisplayMode(.inline)
             .sheet(isPresented: $showScanSheet) {
                 BarcodeScannerView(scannedCode: $scannedBarcode)
@@ -57,9 +57,13 @@ struct RecipesHomeView: View {
                     }
                 }
             }
-            .task { await loadSuggestions() }
+            .task { 
+                if recipes.isEmpty {
+                    await loadSuggestions() 
+                }
+            }
             .refreshable { await loadSuggestions() }
-            .onChange(of: selectedAllergy) { _, _ in Task { await loadSuggestions() } }
+            .onChange(of: selectedAllergies) { _, _ in Task { await loadSuggestions() } }
         }
     }
 
@@ -113,57 +117,66 @@ struct RecipesHomeView: View {
         }
     }
 
-    private var filterAndSearch: some View {
-        HStack(spacing: 10) {
-            Menu {
-                ForEach(AllergyFilter.allCases) { f in
-                    Button(f.rawValue) { selectedAllergy = f }
-                }
-            } label: {
-                HStack(spacing: 8) {
-                    Image(systemName: "allergens")
-                    Text(selectedAllergy.rawValue)
-                    Image(systemName: "chevron.down")
-                }
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(selectedAllergy == .all ? .primary : Color.appPrimary)
-                .padding(.vertical, 12)
-                .padding(.horizontal, 16)
-                .background(selectedAllergy == .all ? Color(.systemBackground) : Color.appPrimaryLight)
-                .clipShape(RoundedRectangle(cornerRadius: 14))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 14)
-                        .stroke(selectedAllergy == .all ? Color.gray.opacity(0.2) : Color.appPrimary.opacity(0.3), lineWidth: 1)
-                )
-            }
+    private var allergyCheckboxes: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Allergies")
+                .font(.system(.headline, design: .rounded))
+                .foregroundStyle(.red) // High-visibility requirement
             
-            HStack(spacing: 8) {
-                Image(systemName: "magnifyingglass")
-                    .foregroundStyle(.secondary)
-                TextField("Search recipes", text: $searchText)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+                ForEach(AllergyFilter.allCases) { allergy in
+                    Button {
+                        if selectedAllergies.contains(allergy) {
+                            selectedAllergies.remove(allergy)
+                        } else {
+                            selectedAllergies.insert(allergy)
+                        }
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: selectedAllergies.contains(allergy) ? "checkmark.square.fill" : "square")
+                                .font(.system(size: 18, weight: .semibold))
+                            Text(allergy.rawValue)
+                                .font(.system(size: 14, weight: .bold))
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.8)
+                            Spacer(minLength: 0)
+                        }
+                        .foregroundStyle(selectedAllergies.contains(allergy) ? .white : Color.appPrimary)
+                        .padding(.vertical, 12)
+                        .padding(.horizontal, 12)
+                        .frame(maxWidth: .infinity)
+                        .background(selectedAllergies.contains(allergy) ? Color.appPrimary : Color.appPrimaryLight.opacity(0.3))
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                        .animation(.spring(response: 0.3), value: selectedAllergies.contains(allergy))
+                    }
+                    .buttonStyle(.plain)
+                }
             }
-            .padding(.vertical, 12)
-            .padding(.horizontal, 16)
-            .background(Color(.systemBackground))
-            .clipShape(RoundedRectangle(cornerRadius: 14))
-            .overlay(
-                RoundedRectangle(cornerRadius: 14)
-                    .stroke(Color.gray.opacity(0.2), lineWidth: 1)
-            )
         }
+        .padding(.vertical, 8)
     }
 
     @ViewBuilder
     private var content: some View {
         if isLoading && recipes.isEmpty {
-            VStack(spacing: 16) {
+            VStack(spacing: 20) {
                 ProgressView()
-                Text("Finding recipes…")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .scaleEffect(1.5)
+                    .tint(Color.appPrimary)
+                VStack(spacing: 8) {
+                    Text("Securing your ingredients…")
+                        .font(.headline)
+                        .foregroundStyle(Color.appPrimary)
+                    Text("Cross-referencing live inventory for 100% accuracy")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                }
             }
+            .padding(24)
+            .background(Color.white.opacity(0.8))
+            .clipShape(RoundedRectangle(cornerRadius: 20))
+            .shadow(color: .black.opacity(0.05), radius: 10)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else if let msg = errorMessage, recipes.isEmpty {
             VStack(spacing: 12) {
@@ -196,18 +209,14 @@ struct RecipesHomeView: View {
     }
 
     private var filteredRecipes: [Recipe] {
-        var list = recipes
-        if !searchText.isEmpty {
-            list = list.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
-        }
-        return list
+        recipes
     }
 
     private func loadSuggestions() async {
         isLoading = true
         errorMessage = nil
         defer { isLoading = false }
-        let allergens: [String] = selectedAllergy.apiValue.map { [$0] } ?? []
+        let allergens = selectedAllergies.map { $0.apiValue }
         do {
             recipes = try await recipeService.fetchSuggestions(count: 4, allergens: allergens)
         } catch {

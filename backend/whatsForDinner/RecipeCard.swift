@@ -32,9 +32,8 @@ struct RecipeCard: View {
             }
         }
         .padding(12)
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 20))
-        .shadow(color: .black.opacity(isPressed ? 0.05 : 0.15), radius: isPressed ? 4 : 10, x: 0, y: isPressed ? 2 : 6)
+        .premiumCardStyle()
+        .shadow(color: .black.opacity(isPressed ? 0.02 : 0.05), radius: isPressed ? 4 : 10, x: 0, y: isPressed ? 2 : 6)
         .scaleEffect(isPressed ? 0.97 : 1.0)
         .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isPressed)
         .onLongPressGesture(minimumDuration: 0.1, pressing: { pressing in
@@ -44,7 +43,9 @@ struct RecipeCard: View {
 
     @ViewBuilder
     private var recipeImage: some View {
-        Group {
+        ZStack {
+            imagePlaceholder // Show background gradient as base
+            
             if let urlString = recipe.imageUrl, let url = URL(string: urlString) {
                 AsyncImage(url: url) { phase in
                     switch phase {
@@ -52,27 +53,23 @@ struct RecipeCard: View {
                         image
                             .resizable()
                             .aspectRatio(contentMode: .fill)
-                            .overlay(gradientOverlay)
-                    case .failure:
-                        imagePlaceholder
-                    case .empty:
-                        ProgressView()
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .transition(.opacity.combined(with: .scale))
+                    case .failure, .empty:
+                        Color.clear // Keep the placeholder visible
                     @unknown default:
-                        imagePlaceholder
+                        Color.clear
                     }
                 }
-            } else {
-                imagePlaceholder
             }
         }
         .frame(height: 120)
         .clipShape(RoundedRectangle(cornerRadius: 16))
+        .animation(.snappy, value: recipe.imageUrl)
     }
     
     private var gradientOverlay: some View {
         LinearGradient(
-            colors: [.clear, .black.opacity(0.3)],
+            colors: [.clear, .black.opacity(0.4)],
             startPoint: .top,
             endPoint: .bottom
         )

@@ -12,70 +12,131 @@ struct LoginView: View {
 
     var body: some View {
         NavigationStack {
-            if isLoggedIn {
-                // After login, ONLY show the main app
-                MainTabView()
-            } else {
-                VStack(spacing: 16) {
-                    Text("Welcome Back")
-                        .font(.largeTitle)
-                        .bold()
-                        .frame(maxWidth: .infinity, alignment: .leading)
-
-                    VStack(spacing: 12) {
-                        TextField("Email", text: $email)
-                            .textInputAutocapitalization(.never)
-                            .keyboardType(.emailAddress)
-                            .autocorrectionDisabled()
-                            .textContentType(.username)
-                            .padding()
-                            .background(.thinMaterial)
-                            .clipShape(RoundedRectangle(cornerRadius: 12))
-
-                        SecureField("Password", text: $password)
-                            .textContentType(.password)
-                            .padding()
-                            .background(.thinMaterial)
-                            .clipShape(RoundedRectangle(cornerRadius: 12))
-                    }
-
-                    if let errorMessage {
-                        Text(errorMessage)
-                            .foregroundStyle(.red)
-                            .font(.footnote)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-
-                    Button {
-                        Task { await login() }
-                    } label: {
-                        HStack {
-                            if isLoading {
-                                ProgressView()
+            ZStack {
+                // Background Gradient
+                Color.white.ignoresSafeArea()
+                
+                LinearGradient(
+                    colors: [Color.appPrimaryLight.opacity(0.5), Color.white],
+                    startPoint: .top,
+                    endPoint: .bottom
+                ).ignoresSafeArea()
+                
+                if isLoggedIn {
+                    MainTabView()
+                } else {
+                    ScrollView {
+                        VStack(spacing: 30) {
+                            // Logo and App Name
+                            VStack(spacing: 12) {
+                                Image(systemName: "fork.knife.circle.fill")
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fit)
+                                    .frame(width: 80, height: 80)
+                                    .foregroundStyle(Color.foodGradient)
+                                    .shadow(color: Color.appSecondary.opacity(0.2), radius: 10)
+                                
+                                Text("What's For Dinner")
+                                    .font(.system(.title, design: .rounded))
+                                    .bold()
+                                    .foregroundStyle(Color.foodGradient)
                             }
-                            Text(isLoading ? "Signing in..." : "Sign In")
+                            .padding(.top, 40)
+                            
+                            // Form Card
+                            VStack(spacing: 20) {
+                                Text("Welcome Back")
+                                    .font(.system(.title2, design: .rounded))
+                                    .bold()
+                                    .foregroundStyle(.primary)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                
+                                VStack(spacing: 15) {
+                                    VStack(alignment: .leading, spacing: 5) {
+                                        Label("Email", systemImage: "envelope")
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                        
+                                        TextField("your@email.com", text: $email)
+                                            .textInputAutocapitalization(.never)
+                                            .keyboardType(.emailAddress)
+                                            .autocorrectionDisabled()
+                                            .padding()
+                                            .background(Color.secondary.opacity(0.05))
+                                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                                            .overlay(
+                                                RoundedRectangle(cornerRadius: 12)
+                                                    .stroke(Color.black.opacity(0.05), lineWidth: 1)
+                                            )
+                                    }
+                                    
+                                    VStack(alignment: .leading, spacing: 5) {
+                                        Label("Password", systemImage: "lock")
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                        
+                                        SecureField("••••••••", text: $password)
+                                            .padding()
+                                            .background(Color.secondary.opacity(0.05))
+                                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                                            .overlay(
+                                                RoundedRectangle(cornerRadius: 12)
+                                                    .stroke(Color.black.opacity(0.05), lineWidth: 1)
+                                            )
+                                    }
+                                }
+                                
+                                if let errorMessage {
+                                    Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
+                                        .foregroundStyle(.red)
+                                        .font(.footnote)
+                                        .transition(.opacity.combined(with: .move(edge: .top)))
+                                }
+                                
+                                Button {
+                                    withAnimation { isLoading = true }
+                                    Task { await login() }
+                                } label: {
+                                    HStack {
+                                        if isLoading {
+                                            ProgressView()
+                                                .tint(.white)
+                                                .padding(.trailing, 5)
+                                        }
+                                        Text(isLoading ? "Authenticating..." : "Sign In")
+                                            .fontWeight(.bold)
+                                    }
+                                    .frame(maxWidth: .infinity)
+                                    .padding()
+                                    .background(isFormValid ? AnyShapeStyle(Color.primaryGradient) : AnyShapeStyle(Color.gray.opacity(0.2)))
+                                    .clipShape(Capsule())
+                                    .shadow(color: isFormValid ? Color.appPrimary.opacity(0.3) : .clear, radius: 8, x: 0, y: 4)
+                                }
+                                .disabled(isLoading || !isFormValid)
+                                .scaleEffect(isLoading ? 0.98 : 1.0)
+                            }
+                            .padding(25)
+                            .premiumCardStyle()
+                            
+                            // Bottom Link
+                            HStack {
+                                Text("Don't have an account?")
+                                    .foregroundStyle(.secondary)
+                                
+                                NavigationLink {
+                                    SignUpView(supabase: supabase)
+                                } label: {
+                                    Text("Create one")
+                                        .bold()
+                                        .foregroundStyle(Color.appPrimary)
+                                }
+                            }
+                            .font(.subheadline)
+                            .padding(.bottom, 20)
                         }
-                        .frame(maxWidth: .infinity)
+                        .padding()
                     }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(isLoading || !isFormValid)
-
-                    HStack {
-                        Text("No account?")
-                            .foregroundStyle(.secondary)
-
-                        NavigationLink {
-                            SignUpView(supabase: supabase)
-                        } label: {
-                            Text("Create one")
-                        }
-                    }
-                    .font(.footnote)
-
-                    Spacer()
                 }
-                .padding()
-                .navigationTitle("Login")
             }
         }
     }

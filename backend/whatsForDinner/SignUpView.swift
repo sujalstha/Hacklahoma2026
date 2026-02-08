@@ -27,64 +27,118 @@ struct SignUpView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 14) {
-                Text("Create Account")
-                    .font(.largeTitle).bold()
-                    .frame(maxWidth: .infinity, alignment: .leading)
-
-                TextField("Email", text: $email)
-                    .textInputAutocapitalization(.never)
-                    .keyboardType(.emailAddress)
-                    .autocorrectionDisabled()
-                    .padding()
-                    .background(.thinMaterial)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-
-                SecureField("Password (6+ chars)", text: $password)
-                    .padding()
-                    .background(.thinMaterial)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-
-                SecureField("Confirm Password", text: $confirmPassword)
-                    .padding()
-                    .background(.thinMaterial)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-
-                if let statusMessage {
-                    Text(statusMessage)
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-
-                Button {
-                    Task { await signUp() }
-                } label: {
-                    HStack {
-                        if isLoading { ProgressView() }
-                        Text(isLoading ? "Creating..." : "Create Account")
+            ZStack {
+                // Background Gradient
+                Color.white.ignoresSafeArea()
+                
+                LinearGradient(
+                    colors: [Color.appSecondaryLight.opacity(0.4), Color.white],
+                    startPoint: .top,
+                    endPoint: .bottom
+                ).ignoresSafeArea()
+                
+                ScrollView {
+                    VStack(spacing: 30) {
+                        // Header
+                        VStack(spacing: 12) {
+                            Image(systemName: "person.badge.plus")
+                                .resizable()
+                                .aspectRatio(contentMode: .fit)
+                                .frame(width: 60, height: 60)
+                                .foregroundStyle(Color.primaryGradient)
+                            
+                            Text("Join What's For Dinner")
+                                .font(.system(.title, design: .rounded))
+                                .bold()
+                                .foregroundStyle(Color.foodGradient)
+                        }
+                        .padding(.top, 30)
+                        
+                        // Form Card
+                        VStack(spacing: 20) {
+                            Text("Create Account")
+                                .font(.system(.title2, design: .rounded))
+                                .bold()
+                                .foregroundStyle(.primary)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            
+                            VStack(spacing: 15) {
+                                customField(label: "Email", icon: "envelope", placeholder: "your@email.com", text: $email)
+                                customField(label: "Password", icon: "lock", placeholder: "6+ characters", text: $password, isSecure: true)
+                                customField(label: "Confirm Password", icon: "lock.fill", placeholder: "Repeat password", text: $confirmPassword, isSecure: true)
+                            }
+                            
+                            if let statusMessage {
+                                Label(statusMessage, systemImage: "info.circle.fill")
+                                    .font(.footnote)
+                                    .foregroundStyle(.secondary)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .transition(.opacity)
+                            }
+                            
+                            Button {
+                                withAnimation { isLoading = true }
+                                Task { await signUp() }
+                            } label: {
+                                HStack {
+                                    if isLoading {
+                                        ProgressView()
+                                            .tint(.white)
+                                            .padding(.trailing, 5)
+                                    }
+                                    Text(isLoading ? "Creating..." : "Start Cooking")
+                                        .fontWeight(.bold)
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding()
+                                .background(isFormValid ? AnyShapeStyle(Color.primaryGradient) : AnyShapeStyle(Color.gray.opacity(0.2)))
+                                .clipShape(Capsule())
+                                .shadow(color: isFormValid ? .appPrimary.opacity(0.3) : .clear, radius: 8, x: 0, y: 4)
+                            }
+                            .disabled(isLoading || !isFormValid)
+                            
+                            Button("Already have an account? Login") {
+                                dismiss()
+                            }
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .padding(.top, 10)
+                        }
+                        .padding(25)
+                        .premiumCardStyle()
+                        
+                        Spacer()
                     }
-                    .frame(maxWidth: .infinity)
+                    .padding()
                 }
-                .buttonStyle(.borderedProminent)
-                .disabled(isLoading || !isFormValid)
-
-                Button {
-                    Task { await resendVerificationEmail() }
-                } label: {
-                    Text("Resend verification email")
-                        .frame(maxWidth: .infinity)
+            }
+        }
+    }
+    
+    @ViewBuilder
+    private func customField(label: String, icon: String, placeholder: String, text: Binding<String>, isSecure: Bool = false) -> some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Label(label, systemImage: icon)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            
+            Group {
+                if isSecure {
+                    SecureField(placeholder, text: text)
+                } else {
+                    TextField(placeholder, text: text)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .keyboardType(label == "Email" ? .emailAddress : .default)
                 }
-                .buttonStyle(.bordered)
-                .disabled(isLoading || !canResend)
-
-                Button("Back to Login") { dismiss() }
-                    .font(.footnote)
-
-                Spacer()
             }
             .padding()
-            .navigationTitle("Sign Up")
+            .background(Color.secondary.opacity(0.05))
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(Color.black.opacity(0.05), lineWidth: 1)
+            )
         }
     }
 

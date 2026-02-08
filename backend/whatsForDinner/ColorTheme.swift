@@ -43,6 +43,19 @@ extension Color {
         endPoint: .trailing
     )
     
+    // Light Background Gradients
+    static let lightBackground = LinearGradient(
+        colors: [Color.white, Color(hex: "#f0fdf4")], // White to very light mint
+        startPoint: .top,
+        endPoint: .bottom
+    )
+    
+    static let premiumPrimaryGradient = LinearGradient(
+        colors: [Color(hex: "#10b981"), Color(hex: "#059669")],
+        startPoint: .topLeading,
+        endPoint: .bottomTrailing
+    )
+    
     // Helper to create Color from hex
     init(hex: String) {
         let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
@@ -73,15 +86,28 @@ extension Color {
 extension View {
     func cardStyle() -> some View {
         self
-            .background(.ultraThinMaterial)
+            .background(Color.white)
             .clipShape(RoundedRectangle(cornerRadius: 18))
-            .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
+            .shadow(color: .black.opacity(0.05), radius: 10, x: 0, y: 5)
+            .overlay(
+                RoundedRectangle(cornerRadius: 18)
+                    .stroke(Color.black.opacity(0.05), lineWidth: 1)
+            )
     }
     
     func premiumCardStyle() -> some View {
         self
-            .background(.ultraThinMaterial)
-            .clipShape(RoundedRectangle(cornerRadius: 20))
-            .shadow(color: .appPrimary.opacity(0.2), radius: 12, x: 0, y: 6)
+            .background(Color.white)
+            .clipShape(RoundedRectangle(cornerRadius: 22))
+            .shadow(color: Color.appPrimary.opacity(0.12), radius: 15, x: 0, y: 8)
+            .overlay(
+                RoundedRectangle(cornerRadius: 22)
+                    .stroke(Color.appPrimary.opacity(0.1), lineWidth: 1)
+            )
+    }
+
+    func lightBackgroundStyle() -> some View {
+        self
+            .background(Color.lightBackground.ignoresSafeArea())
     }
 }

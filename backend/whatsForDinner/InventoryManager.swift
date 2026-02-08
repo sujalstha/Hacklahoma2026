@@ -26,23 +26,28 @@ class InventoryManager: ObservableObject {
         errorMessage = nil
         
         do {
-            let product = try await OpenFoodFactsService.shared.fetchProduct(barcode: barcode)
-            let newItem = InventoryItem(from: product)
+            // 1. Check backend first for seamless integration
+            let scanResult = try await pantryService.scanBarcode(barcode)
             
-            // Check if item already exists locally
-            if items.contains(where: { $0.barcode == barcode }) {
-                errorMessage = "Item already in inventory"
+            if scanResult.found, let backendItem = scanResult.item {
+                // Item exists on backend, just add it to user's inventory
+                try await pantryService.addToInventory(itemId: backendItem.id, quantity: 1.0, unit: "piece")
+                await syncWithBackend() // Refresh from backend
             } else {
-                items.insert(newItem, at: 0) // Add to beginning
-                saveLocalItems()
+                // Fallback to OpenFoodFacts for new items
+                let product = try await OpenFoodFactsService.shared.fetchProduct(barcode: barcode)
+                let newItem = InventoryItem(from: product)
                 
-                // TODO: Optional - sync new item to backend as well
+                if items.contains(where: { $0.barcode == barcode }) {
+                    errorMessage = "Item already in inventory"
+                } else {
+                    items.insert(newItem, at: 0)
+                    saveLocalItems()
+                    // TODO: In a production app, we'd also call create_pantry_item here
+                }
             }
-            
-        } catch let error as OpenFoodFactsError {
-            errorMessage = error.errorDescription
         } catch {
-            errorMessage = "Failed to fetch product: \(error.localizedDescription)"
+            errorMessage = "Failed to sync: \(error.localizedDescription)"
         }
         
         isLoading = false

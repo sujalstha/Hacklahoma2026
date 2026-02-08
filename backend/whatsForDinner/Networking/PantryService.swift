@@ -104,7 +104,6 @@ final class PantryService {
         }
         
         let decoder = JSONDecoder()
-        // We need a helper struct to decode the backend's InventoryResponse and convert it to InventoryItem
         let backendItems = try decoder.decode([BackendInventoryResponse].self, from: data)
         return backendItems.map { $0.toInventoryItem() }
     }
@@ -125,6 +124,72 @@ final class PantryService {
         decoder.dateDecodingStrategy = .iso8601
         return try decoder.decode(MacroGoals.self, from: data)
     }
+
+    func deleteDinner(withId dinnerId: Int) async throws {
+        guard let url = URL(string: "\(baseURL)/api/pantry/dinners/\(dinnerId)") else {
+            throw RecipeServiceError.invalidURL
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "DELETE"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        let (_, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
+            throw RecipeServiceError.invalidResponse
+        }
+    }
+
+    /// Scan a barcode and return existing item or info.
+    func scanBarcode(_ barcode: String) async throws -> BackendBarcodeResponse {
+        guard let url = URL(string: "\(baseURL)/api/pantry/scan") else {
+            throw RecipeServiceError.invalidURL
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        let body = ["barcode": barcode]
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        
+        let (data, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
+            throw RecipeServiceError.invalidResponse
+        }
+        return try JSONDecoder().decode(BackendBarcodeResponse.self, from: data)
+    }
+
+    /// Add a new item to the user's inventory.
+    func addToInventory(itemId: Int, quantity: Double, unit: String) async throws {
+        guard let url = URL(string: "\(baseURL)/api/pantry/inventory") else {
+            throw RecipeServiceError.invalidURL
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        let body: [String: Any] = [
+            "item_id": itemId,
+            "quantity": quantity,
+            "unit": unit,
+            "location": "pantry"
+        ]
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        let (_, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
+            throw RecipeServiceError.invalidResponse
+        }
+    }
+}
+
+struct BackendBarcodeResponse: Codable {
+    let found: Bool
+    let item: BackendInventoryItem?
+    let message: String
+}
+
+struct BackendInventoryItem: Codable {
+    let id: Int
+    let name: String
+    let barcode: String?
 }
 
 // MARK: - Backend Mappings
@@ -160,7 +225,7 @@ struct BackendInventoryResponse: Codable {
             barcode: item.barcode ?? "",
             productName: item.name,
             brand: item.brand ?? "",
-            imageURL: nil, // Backend doesn't store this yet
+            imageURL: nil,
             quantity: "\(quantity) \(unit)",
             calories: item.calories,
             protein: item.protein,

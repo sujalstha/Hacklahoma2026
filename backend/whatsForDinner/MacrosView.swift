@@ -38,6 +38,7 @@ struct MacrosView: View {
                 }
                 .padding(.horizontal)
             }
+            .lightBackgroundStyle()
             .navigationTitle("Macros")
             .navigationBarTitleDisplayMode(.inline)
             .task { await loadToday() }
@@ -53,7 +54,7 @@ struct MacrosView: View {
                     value: cal,
                     goal: goals?.calories ?? 2000,
                     label: "Calories",
-                    unit: "kcal",
+                    unit: "Cal",
                     color: .caloriesRed
                 )
                 ParliamentChart(
@@ -91,8 +92,39 @@ struct MacrosView: View {
                     .foregroundStyle(.secondary)
                     .padding(.vertical, 8)
             } else {
-                ForEach(dinners) { d in
-                    dinnerRow(d)
+                List {
+                    ForEach(dinners) { d in
+                        dinnerRow(d)
+                            .listRowInsets(EdgeInsets())
+                            .listRowBackground(Color.clear)
+                            .listRowSeparator(.hidden)
+                            .padding(.vertical, 4)
+                    }
+                    .onDelete(perform: deleteDinner)
+                }
+                .listStyle(.plain)
+                .frame(minHeight: CGFloat(dinners.count * 80)) // Basic height estimate
+                .scrollDisabled(true)
+            }
+        }
+    }
+
+    private func deleteDinner(at offsets: IndexSet) {
+        let itemsToDelete = offsets.map { dinners[$0] }
+        // Optimistic update
+        let originalDinners = dinners
+        dinners.remove(atOffsets: offsets)
+        
+        Task {
+            for item in itemsToDelete {
+                do {
+                    try await pantryService.deleteDinner(withId: item.id)
+                } catch {
+                    print("Failed to delete dinner: \(error)")
+                    // Rollback on failure
+                    await MainActor.run {
+                        self.dinners = originalDinners
+                    }
                 }
             }
         }
@@ -111,8 +143,7 @@ struct MacrosView: View {
             Spacer()
         }
         .padding(12)
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .cardStyle()
     }
 
     private func todayTotals() -> (calories: Double, protein: Double, carbs: Double, fat: Double) {
@@ -197,7 +228,6 @@ struct ParliamentChart: View {
                 .foregroundStyle(.secondary)
         }
         .padding(12)
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .cardStyle()
     }
 }

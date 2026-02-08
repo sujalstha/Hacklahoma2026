@@ -37,6 +37,7 @@ struct InventoryView: View {
                     }
                 }
             }
+            .lightBackgroundStyle()
             .navigationTitle("Inventory")
             .toolbar {
                 if !inventoryManager.items.isEmpty {

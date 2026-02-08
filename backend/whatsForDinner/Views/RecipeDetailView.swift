@@ -26,6 +26,7 @@ struct RecipeDetailView: View {
             }
             .padding()
         }
+        .lightBackgroundStyle()
         .navigationTitle(recipe.name)
         .navigationBarTitleDisplayMode(.inline)
     }
@@ -100,9 +101,10 @@ struct RecipeDetailView: View {
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)
-                .background(Color.accentColor)
+                .background(Color.primaryGradient)
                 .foregroundStyle(.white)
                 .clipShape(RoundedRectangle(cornerRadius: 14))
+                .shadow(color: .appPrimary.opacity(0.3), radius: 8, y: 4)
             }
             .disabled(isLogging || loggedMessage != nil)
         }
@@ -134,8 +136,7 @@ struct RecipeDetailView: View {
             .font(.subheadline)
         }
         .padding()
-        .background(.thinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .premiumCardStyle()
     }
 
     private func macroItem(value: Int, unit: String) -> some View {

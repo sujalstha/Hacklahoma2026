@@ -85,7 +85,8 @@ def _parse_allergens(allergens: Optional[str]) -> Optional[List[str]]:
 async def get_suggestions(
         count: int = RECIPE_ENGINE_COUNT,
         allergens: Optional[str] = Query(None, description="Comma-separated: egg, milk, peanut"),
-        current_user: dict = Depends(get_current_user)
+        current_user: dict = Depends(get_current_user),
+        db: Session = Depends(get_db)
 ):
     """
     Get exactly 4 recipe suggestions (recipeEngine) with unique AI image per recipe.
@@ -93,6 +94,7 @@ async def get_suggestions(
     """
     recipes = await recipe_service.get_suggestions(
         user_id=current_user["id"],
+        db=db,
         count=min(max(1, count), 10),  # clamp 1–10, default 4
         allergens_override=_parse_allergens(allergens),
     )
@@ -106,7 +108,8 @@ async def get_suggestions(
 
 @router.get("/daily-suggestion", response_model=RecipeResponse)
 async def get_daily_suggestion(
-        current_user: dict = Depends(get_current_user)
+        current_user: dict = Depends(get_current_user),
+        db: Session = Depends(get_db)
 ):
     """
     Get tonight's dinner suggestion.
@@ -122,7 +125,8 @@ async def get_daily_suggestion(
     """
 
     recipe = await recipe_service.get_daily_suggestion(
-        user_id=current_user["id"]
+        user_id=current_user["id"],
+        db=db
     )
 
     # Check if recipe service returned an error
