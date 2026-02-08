@@ -7,6 +7,7 @@ class Settings(BaseSettings):
 
     # API Keys for recipe system
     SPOONACULAR_API_KEY: str
+    SPOONACULAR_BASE_URL: str = "https://api.spoonacular.com"  # Add this
     GEMINI_API_KEY: str
 
     class Config:

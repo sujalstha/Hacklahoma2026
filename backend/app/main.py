@@ -1,7 +1,9 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .routes import pantry, recipe
+from dotenv import load_dotenv
 # from .routes import dinner  # Your teammate's routes
+
 
 app = FastAPI(title="What's For Dinner API")
 
