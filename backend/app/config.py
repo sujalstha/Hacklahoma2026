@@ -6,8 +6,8 @@ class Settings(BaseSettings):
     SECRET_KEY: str = "groupb"
 
     # API Keys for recipe system
-    SPOONACULAR_API_KEY: str = ""
-    GEMINI_API_KEY= ""
+    SPOONACULAR_API_KEY: str
+    GEMINI_API_KEY: str
 
     class Config:
         env_file = ".env"

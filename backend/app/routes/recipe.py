@@ -8,7 +8,7 @@ This shows how to:
 4. Integrate with your pantry system
 """
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from typing import List, Optional
 import httpx
@@ -27,19 +27,19 @@ class RecipeResponse(BaseModel):
     servings: int
     ready_in_minutes: int
     image_url: Optional[str] = None
-    
+
     # Macros
     calories_per_serving: float
     protein_per_serving: float
     carbs_per_serving: float
     fat_per_serving: float
-    
+
     # Ingredients
     ingredients: List[dict]
-    
+
     # Simplified steps (max 5)
     steps: List[str]
-    
+
     # Metadata
     source: str
     spoonacular_url: Optional[str] = None
@@ -60,13 +60,13 @@ class AcceptRecipeRequest(BaseModel):
 
 @router.get("/daily-suggestion", response_model=RecipeResponse)
 async def get_daily_suggestion(
-    current_user: dict = Depends(get_current_user)
+        current_user: dict = Depends(get_current_user)
 ):
     """
     Get tonight's dinner suggestion.
-    
+
     This is called at 5 PM (use a scheduler like APScheduler or Celery).
-    
+
     Flow:
     1. Get user's allergens from pantry API
     2. Get user's inventory from pantry API
@@ -78,22 +78,31 @@ async def get_daily_suggestion(
     recipe = await recipe_service.get_daily_suggestion(
         user_id=current_user["id"]
     )
+
+    # Check if recipe service returned an error
+    if isinstance(recipe, dict) and "error" in recipe:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=recipe["error"]
+        )
+
     return recipe
+
 
 @router.post("/accept")
 async def accept_recipe(
-    request: AcceptRecipeRequest,
-    current_user: dict = Depends(get_current_user)
+        request: AcceptRecipeRequest,
+        current_user: dict = Depends(get_current_user)
 ):
     """
     User accepted the recipe suggestion.
-    
+
     Actions:
     1. Log dinner in pantry system (for macro tracking)
     2. Deduct ingredients from inventory
     """
     pantry_api_url = "http://localhost:8000/api/pantry"
-    
+
     async with httpx.AsyncClient() as client:
         # 1. Log the dinner
         dinner_response = await client.post(
@@ -109,17 +118,17 @@ async def accept_recipe(
             },
             headers={"Authorization": f"Bearer {current_user['token']}"}  # Add proper auth
         )
-        
+
         if dinner_response.status_code != 201:
             raise HTTPException(status_code=500, detail="Failed to log dinner")
-        
+
         # 2. Get user's inventory to match ingredients
         inventory_response = await client.get(
             f"{pantry_api_url}/inventory",
             headers={"Authorization": f"Bearer {current_user['token']}"}
         )
         inventory = inventory_response.json()
-        
+
         # 3. Deduct ingredients from inventory
         deducted_items = []
         for ingredient in request.ingredients:
@@ -128,7 +137,7 @@ async def accept_recipe(
             for inv_item in inventory:
                 item_name = inv_item["item"]["name"].lower()
                 ingredient_name = ingredient["name"].lower()
-                
+
                 # Simple fuzzy match (can improve this)
                 if ingredient_name in item_name or item_name in ingredient_name:
                     # Deduct quantity
@@ -137,16 +146,16 @@ async def accept_recipe(
                         params={"quantity_delta": -ingredient["amount"]},
                         headers={"Authorization": f"Bearer {current_user['token']}"}
                     )
-                    
+
                     if adjust_response.status_code == 200:
                         deducted_items.append(ingredient["name"])
                         matched = True
                         break
-            
+
             if not matched:
                 # Ingredient not in inventory (user might need to buy it)
                 pass
-    
+
     return {
         "success": True,
         "message": "Recipe accepted and logged!",
@@ -156,12 +165,12 @@ async def accept_recipe(
 
 @router.post("/swap")
 async def swap_recipe(
-    current_recipe_id: str,
-    current_user: dict = Depends(get_current_user)
+        current_recipe_id: str,
+        current_user: dict = Depends(get_current_user)
 ):
     """
     User wants a different recipe (clicked 'Swap' button).
-    
+
     Get another suggestion with similar constraints.
     """
     # Uncomment when recipe_service is set up:
@@ -169,17 +178,17 @@ async def swap_recipe(
     #     user_id=current_user["id"]
     # )
     # return new_recipe
-    
+
     return {"message": "Swap feature - returns alternative recipe"}
 
 
 @router.get("/too-tired")
 async def get_ultra_easy_meal(
-    current_user: dict = Depends(get_current_user)
+        current_user: dict = Depends(get_current_user)
 ):
     """
     Emergency 'Too Tired' option - ultra-simple meals.
-    
+
     Returns super easy recipes:
     - Max 3 ingredients
     - Max 15 minutes
@@ -187,7 +196,7 @@ async def get_ultra_easy_meal(
     """
     # Search Spoonacular with stricter constraints
     # max_ingredients=3, max_ready_time=15
-    
+
     return {
         "recipe_id": "emergency_123",
         "name": "3-Ingredient Scrambled Eggs",
@@ -208,12 +217,12 @@ async def get_ultra_easy_meal(
 
 @router.get("/history")
 async def get_recipe_history(
-    days: int = 30,
-    current_user: dict = Depends(get_current_user)
+        days: int = 30,
+        current_user: dict = Depends(get_current_user)
 ):
     """
     Get recipes the user has cooked recently.
-    
+
     This calls your pantry API's dinner history endpoint.
     """
     async with httpx.AsyncClient() as client:
@@ -226,12 +235,12 @@ async def get_recipe_history(
 
 @router.get("/macros/progress")
 async def get_macro_progress(
-    days: int = 7,
-    current_user: dict = Depends(get_current_user)
+        days: int = 7,
+        current_user: dict = Depends(get_current_user)
 ):
     """
     Show user's macro progress vs. their goals.
-    
+
     Combines:
     - User's target macros (from preferences)
     - User's actual macros (from dinner history)
@@ -243,14 +252,14 @@ async def get_macro_progress(
             headers={"Authorization": f"Bearer {current_user['token']}"}
         )
         preferences = prefs_response.json()
-        
+
         # Get actual macros
         summary_response = await client.get(
             f"http://localhost:8000/api/pantry/dinners/macros/summary?days={days}",
             headers={"Authorization": f"Bearer {current_user['token']}"}
         )
         actual = summary_response.json()
-        
+
         # Calculate progress
         return {
             "period": f"Last {days} days",
@@ -267,8 +276,10 @@ async def get_macro_progress(
                 "fat": actual["avg_fat"]
             },
             "progress": {
-                "calories_percent": (actual["avg_calories"] / preferences["target_calories"] * 100) if preferences.get("target_calories") else 0,
-                "protein_percent": (actual["avg_protein"] / preferences["target_protein"] * 100) if preferences.get("target_protein") else 0,
+                "calories_percent": (actual["avg_calories"] / preferences["target_calories"] * 100) if preferences.get(
+                    "target_calories") else 0,
+                "protein_percent": (actual["avg_protein"] / preferences["target_protein"] * 100) if preferences.get(
+                    "target_protein") else 0,
                 # ... calculate others
             }
         }
@@ -288,10 +299,10 @@ async def send_daily_recipe_notifications():
     '''Send recipe suggestion to all users at 5 PM'''
     # Get all users
     users = get_all_users()  # You need to implement this
-    
+
     for user in users:
         recipe = await recipe_service.get_daily_suggestion(user_id=user.id)
-        
+
         # Send push notification to user's phone
         await send_push_notification(
             user_id=user.id,

@@ -12,9 +12,9 @@ from ..schemas.pantry import (
     MacroSummary, Category
 )
 from ..models.pantry import UnitType
-import pantry as crud
+from ..crud import pantry as crud
 
-from ..deps import get_db, get_current_user  # You'll need to implement these
+from ..deps import get_db, get_current_user
 
 router = APIRouter(prefix="/api/pantry", tags=["pantry"])
 
