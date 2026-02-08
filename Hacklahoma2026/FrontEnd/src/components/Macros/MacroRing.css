@@ -1,0 +1,36 @@
+.macro-ring {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background-color: white;
+  padding: 16px;
+  border-radius: 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.ring-svg {
+  margin-bottom: 8px;
+}
+
+.ring-progress {
+  transition: stroke-dashoffset 0.5s ease;
+}
+
+.ring-value {
+  font-size: 20px;
+  font-weight: 700;
+  fill: #1a1a1a;
+}
+
+.ring-unit {
+  font-size: 11px;
+  fill: #6c757d;
+}
+
+.ring-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin: 0;
+  text-align: center;
+}
