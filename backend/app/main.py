@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from .routes import pantry
+from .routes import pantry, recipe
 # from .routes import dinner  # Your teammate's routes
 
 app = FastAPI(title="What's For Dinner API")
@@ -16,7 +16,7 @@ app.add_middleware(
 
 # Include routers
 app.include_router(pantry.router)
-# app.include_router(dinner.router)  # Your teammate's routes
+app.include_router(recipe.router)  # Your teammate's routes
 
 @app.get("/")
 def root():
