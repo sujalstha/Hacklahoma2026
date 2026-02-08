@@ -13,9 +13,8 @@ from pydantic import BaseModel
 from typing import List, Optional
 import httpx
 
-# You'll need to add these imports
-# from ..services.recipe_service import recipe_service
-# from ..deps import get_current_user
+from ..services.recipe_service import recipe_service
+from ..deps import get_current_user
 
 router = APIRouter(prefix="/api/recipe", tags=["recipe"])
 
@@ -75,39 +74,11 @@ async def get_daily_suggestion(
     4. Use AI to simplify cooking steps
     5. Return single best recipe
     """
-    # Uncomment when you have recipe_service set up:
-    # recipe = await recipe_service.get_daily_suggestion(
-    #     user_id=current_user["id"]
-    # )
-    # return recipe
-    
-    # Mock response for testing:
-    return {
-        "recipe_id": "12345",
-        "name": "Quick Chicken Stir Fry",
-        "servings": 2,
-        "ready_in_minutes": 25,
-        "image_url": "https://example.com/image.jpg",
-        "calories_per_serving": 420,
-        "protein_per_serving": 35,
-        "carbs_per_serving": 40,
-        "fat_per_serving": 15,
-        "ingredients": [
-            {"name": "chicken breast", "amount": 1, "unit": "lb"},
-            {"name": "soy sauce", "amount": 2, "unit": "tbsp"},
-            {"name": "broccoli", "amount": 2, "unit": "cup"}
-        ],
-        "steps": [
-            "Cut chicken into bite-sized pieces and season with salt and pepper.",
-            "Heat oil in a large pan over high heat and cook chicken until golden, about 5 minutes.",
-            "Add broccoli and stir-fry for 3 minutes until tender-crisp.",
-            "Pour in soy sauce and toss everything together for 1 minute.",
-            "Serve immediately over rice or enjoy as is!"
-        ],
-        "source": "spoonacular",
-        "spoonacular_url": "https://spoonacular.com/recipe"
-    }
 
+    recipe = await recipe_service.get_daily_suggestion(
+        user_id=current_user["id"]
+    )
+    return recipe
 
 @router.post("/accept")
 async def accept_recipe(
