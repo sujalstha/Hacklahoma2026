@@ -37,6 +37,7 @@
 
 | Method | Endpoint | Description | Body |
 |--------|----------|-------------|------|
+| GET | `/api/recipe/suggestions?count=4` | Get exactly 4 recipe suggestions (recipeEngine), each with optional AI image | - |
 | GET | `/api/recipe/daily-suggestion` | Get today's recipe | - |
 | POST | `/api/recipe/accept` | Accept recipe | `{"recipe_id": "123", "name": "...", ...}` |
 | POST | `/api/recipe/swap` | Get different recipe | - |

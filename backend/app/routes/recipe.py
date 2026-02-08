@@ -8,13 +8,16 @@ This shows how to:
 4. Integrate with your pantry system
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
+from sqlalchemy.orm import Session
 from typing import List, Optional
 import httpx
 
 from ..services.recipe_service import recipe_service
-from ..deps import get_current_user
+from ..deps import get_current_user, get_db
+from ..crud import pantry as crud
+from ..schemas.pantry import DinnerHistoryCreate
 
 router = APIRouter(prefix="/api/recipe", tags=["recipe"])
 
@@ -58,6 +61,49 @@ class AcceptRecipeRequest(BaseModel):
 
 # ===== ENDPOINTS =====
 
+# Exactly 4 recipes per request (recipeEngine)
+RECIPE_ENGINE_COUNT = 4
+
+
+def _parse_allergens(allergens: Optional[str]) -> Optional[List[str]]:
+    """Parse comma-separated allergens (egg,milk,peanut) to internal format for Spoonacular."""
+    if not allergens or not allergens.strip():
+        return None
+    # Map client names to our dietary_restrictions / Spoonacular keys
+    mapping = {"egg": "egg_free", "eggs": "egg_free", "milk": "dairy_free", "peanut": "peanut_free", "peanuts": "peanut_free"}
+    out = []
+    for raw in allergens.strip().lower().split(","):
+        key = raw.strip()
+        if key in mapping and mapping[key] not in out:
+            out.append(mapping[key])
+        elif key in ("egg_free", "dairy_free", "peanut_free") and key not in out:
+            out.append(key)
+    return out if out else None
+
+
+@router.get("/suggestions", response_model=List[RecipeResponse])
+async def get_suggestions(
+        count: int = RECIPE_ENGINE_COUNT,
+        allergens: Optional[str] = Query(None, description="Comma-separated: egg, milk, peanut"),
+        current_user: dict = Depends(get_current_user)
+):
+    """
+    Get exactly 4 recipe suggestions (recipeEngine) with unique AI image per recipe.
+    Optional allergy filter: egg, milk, peanut. Uses pantry preferences when not provided.
+    """
+    recipes = await recipe_service.get_suggestions(
+        user_id=current_user["id"],
+        count=min(max(1, count), 10),  # clamp 1–10, default 4
+        allergens_override=_parse_allergens(allergens),
+    )
+    if isinstance(recipes, dict) and "error" in recipes:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=recipes["error"],
+        )
+    return recipes
+
+
 @router.get("/daily-suggestion", response_model=RecipeResponse)
 async def get_daily_suggestion(
         current_user: dict = Depends(get_current_user)
@@ -92,74 +138,26 @@ async def get_daily_suggestion(
 @router.post("/accept")
 async def accept_recipe(
         request: AcceptRecipeRequest,
-        current_user: dict = Depends(get_current_user)
+        current_user: dict = Depends(get_current_user),
+        db: Session = Depends(get_db)
 ):
     """
-    User accepted the recipe suggestion.
-
-    Actions:
-    1. Log dinner in pantry system (for macro tracking)
-    2. Deduct ingredients from inventory
+    User accepted the recipe ("I will eat this" / Grub). Logs dinner for today
+    so it appears in Macros for the day.
     """
-    pantry_api_url = "http://localhost:8000/api/pantry"
-
-    async with httpx.AsyncClient() as client:
-        # 1. Log the dinner
-        dinner_response = await client.post(
-            f"{pantry_api_url}/dinners",
-            json={
-                "meal_name": request.name,
-                "recipe_id": request.recipe_id,
-                "servings": request.servings,
-                "calories_per_serving": request.calories_per_serving,
-                "protein_per_serving": request.protein_per_serving,
-                "carbs_per_serving": request.carbs_per_serving,
-                "fat_per_serving": request.fat_per_serving
-            },
-            headers={"Authorization": f"Bearer {current_user['token']}"}  # Add proper auth
-        )
-
-        if dinner_response.status_code != 201:
-            raise HTTPException(status_code=500, detail="Failed to log dinner")
-
-        # 2. Get user's inventory to match ingredients
-        inventory_response = await client.get(
-            f"{pantry_api_url}/inventory",
-            headers={"Authorization": f"Bearer {current_user['token']}"}
-        )
-        inventory = inventory_response.json()
-
-        # 3. Deduct ingredients from inventory
-        deducted_items = []
-        for ingredient in request.ingredients:
-            # Find matching inventory item (fuzzy name match)
-            matched = False
-            for inv_item in inventory:
-                item_name = inv_item["item"]["name"].lower()
-                ingredient_name = ingredient["name"].lower()
-
-                # Simple fuzzy match (can improve this)
-                if ingredient_name in item_name or item_name in ingredient_name:
-                    # Deduct quantity
-                    adjust_response = await client.post(
-                        f"{pantry_api_url}/inventory/{inv_item['id']}/adjust",
-                        params={"quantity_delta": -ingredient["amount"]},
-                        headers={"Authorization": f"Bearer {current_user['token']}"}
-                    )
-
-                    if adjust_response.status_code == 200:
-                        deducted_items.append(ingredient["name"])
-                        matched = True
-                        break
-
-            if not matched:
-                # Ingredient not in inventory (user might need to buy it)
-                pass
-
+    dinner = DinnerHistoryCreate(
+        meal_name=request.name,
+        recipe_id=request.recipe_id,
+        servings=request.servings,
+        calories_per_serving=request.calories_per_serving,
+        protein_per_serving=request.protein_per_serving,
+        carbs_per_serving=request.carbs_per_serving,
+        fat_per_serving=request.fat_per_serving,
+    )
+    crud.create_dinner_history(db, current_user["id"], dinner)
     return {
         "success": True,
-        "message": "Recipe accepted and logged!",
-        "deducted_items": deducted_items
+        "message": "Logged for today! Check Macros.",
     }
 
 
